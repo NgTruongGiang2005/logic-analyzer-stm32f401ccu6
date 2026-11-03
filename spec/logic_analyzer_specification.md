@@ -83,7 +83,7 @@
   * **Mạng bù tần số cao & Tiêu chí thời gian vượt ngưỡng:**
     * Điện dung tải tại ngõ vào IC đệm: C_load = C_BAT54S + C_in_74LVC245 + C_trace ≈ 10 pF + 4 pF + 2 pF = 16 pF.
     * Chọn tụ bù C1 ≈ 18 – 22 pF. TV2 mô phỏng LTspice kiểm chứng dạng sóng xung 1 MHz – 3 MHz theo tiêu chí thời gian vượt ngưỡng logic: đo thời gian chuyển mức vượt qua V_IH = 2.0 V và xuống dưới V_IL = 0.8 V (đảm bảo t_r, t_f < 20% chu kỳ xung, không làm méo độ rộng xung logic).
-  * **Lưu ý phần cứng chân PA0 (Kit WeAct Black Pill V3.0):** Chân PA0 trên kit được nối qua trở hạn dòng $R_1 = 330\,\Omega$ tới nút nhấn KEY nối GND (hoàn toàn không có tụ lọc nối mass). Khi không bấm nút, nút bấm hở mạch hoàn toàn nên không gây suy hao xung cao tần. Lưu ý duy nhất: không ấn nút KEY trong khi đang đo xung logic trên Kênh 0.
+  * **Lưu ý phần cứng chân PA0 (Kit WeAct Black Pill V3.0):** Chân PA0 trên kit được nối qua trở hạn dòng $330\,\Omega$ (ký hiệu R1 trên kit, tránh nhầm với điện trở $R_1 = 1\text{ k}\Omega$ của mạch bảo vệ) tới nút nhấn KEY nối GND (hoàn toàn không có tụ lọc nối mass). Khi không bấm nút, nút bấm hở mạch hoàn toàn nên không gây suy hao xung cao tần. Lưu ý duy nhất: không ấn nút KEY trong khi đang đo xung logic trên Kênh 0.
 
 ---
 

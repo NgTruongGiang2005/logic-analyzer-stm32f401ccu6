@@ -20,6 +20,7 @@
 #include "main.h"
 #include "dma.h"
 #include "tim.h"
+#include "usart.h"
 #include "usb_device.h"
 #include "gpio.h"
 
@@ -27,6 +28,7 @@
 /* USER CODE BEGIN Includes */
 #include "la_core.h"
 #include "la_protocol.h"
+#include "la_testgen.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -94,8 +96,10 @@ int main(void)
   MX_TIM1_Init();
   MX_USB_DEVICE_Init();
   MX_TIM2_Init();
+  MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
   la_core_init();
+  la_testgen_init();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -106,6 +110,7 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
     la_core_process();
+    la_testgen_process();
   }
   /* USER CODE END 3 */
 }

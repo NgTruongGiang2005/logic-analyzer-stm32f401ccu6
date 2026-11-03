@@ -127,6 +127,11 @@
 			<locationURI>PARENT-1-PROJECT_LOC/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim_ex.c</locationURI>
 		</link>
 		<link>
+			<name>Drivers/STM32F4xx_HAL_Driver/stm32f4xx_hal_uart.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_uart.c</locationURI>
+		</link>
+		<link>
 			<name>Drivers/STM32F4xx_HAL_Driver/stm32f4xx_ll_usb.c</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_ll_usb.c</locationURI>
@@ -162,6 +167,21 @@
 			<locationURI>PARENT-1-PROJECT_LOC/Core/Src/gpio.c</locationURI>
 		</link>
 		<link>
+			<name>Application/User/Core/la_core.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/Core/Src/la_core.c</locationURI>
+		</link>
+		<link>
+			<name>Application/User/Core/la_protocol.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/Core/Src/la_protocol.c</locationURI>
+		</link>
+		<link>
+			<name>Application/User/Core/la_testgen.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/Core/Src/la_testgen.c</locationURI>
+		</link>
+		<link>
 			<name>Application/User/Core/main.c</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/Core/Src/main.c</locationURI>
@@ -182,6 +202,11 @@
 			<locationURI>PARENT-1-PROJECT_LOC/Core/Src/tim.c</locationURI>
 		</link>
 		<link>
+			<name>Application/User/Core/usart.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/Core/Src/usart.c</locationURI>
+		</link>
+		<link>
 			<name>Application/User/USB_DEVICE/App/usb_device.c</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/USB_DEVICE/App/usb_device.c</locationURI>
@@ -200,21 +225,6 @@
 			<name>Application/User/USB_DEVICE/Target/usbd_conf.c</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/USB_DEVICE/Target/usbd_conf.c</locationURI>
-		</link>
-		<link>
-			<name>Application/User/Core/la_core.c</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/Core/Src/la_core.c</locationURI>
-		</link>
-		<link>
-			<name>Application/User/Core/la_protocol.c</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/Core/Src/la_protocol.c</locationURI>
-		</link>
-		<link>
-			<name>Application/User/Core/la_testgen.c</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/Core/Src/la_testgen.c</locationURI>
 		</link>
 	</linkedResources>
 </projectDescription>

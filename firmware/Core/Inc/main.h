@@ -75,8 +75,6 @@ void Error_Handler(void);
 #define LA_CH6_GPIO_Port GPIOA
 #define LA_CH7_Pin GPIO_PIN_7
 #define LA_CH7_GPIO_Port GPIOA
-#define TEST_UART_TX_Pin GPIO_PIN_9
-#define TEST_UART_TX_GPIO_Port GPIOA
 
 /* USER CODE BEGIN Private defines */
 

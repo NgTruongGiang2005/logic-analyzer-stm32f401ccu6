@@ -105,12 +105,17 @@ bool la_core_start_capture(uint8_t rate_idx, uint8_t trig_cfg)
     TIM2->ARR = LA_POST_TRIGGER_SAMPLES - 1; /* 26213 */
     TIM2->CNT = 0;
 
-    /* 4. Xóa cờ ngắt cũ trên DMA2 Stream 5 */
+    /* 4. Xóa cờ ngắt cũ trên DMA2 Stream 5 và chuẩn bị sẵn trạng thái DMA */
     DMA2->HIFCR = DMA_HIFCR_CTCIF5 | DMA_HIFCR_CHTIF5 | DMA_HIFCR_CTEIF5 |
                   DMA_HIFCR_CDMEIF5 | DMA_HIFCR_CFEIF5;
+    hdma_tim1_up.State = HAL_DMA_STATE_READY;
+    __HAL_UNLOCK(&hdma_tim1_up);
 
     /* 5. Khởi động DMA2 Stream 5 đọc trực tiếp từ GPIOA->IDR vào buffer 32KB vòng */
-    HAL_DMA_Start_IT(&hdma_tim1_up, (uint32_t)&(GPIOA->IDR), (uint32_t)la_capture_buffer, LA_BUFFER_SIZE);
+    if (HAL_DMA_Start_IT(&hdma_tim1_up, (uint32_t)&(GPIOA->IDR), (uint32_t)la_capture_buffer, LA_BUFFER_SIZE) != HAL_OK) {
+        g_la_state = LA_STATE_IDLE;
+        return false;
+    }
 
     /* 6. Cho phép TIM1 phát yêu cầu DMA Update */
     __HAL_TIM_ENABLE_DMA(&htim1, TIM_DMA_UPDATE);
@@ -135,6 +140,9 @@ void la_core_abort(void)
 
     DMA2->HIFCR = DMA_HIFCR_CTCIF5 | DMA_HIFCR_CHTIF5 | DMA_HIFCR_CTEIF5 |
                   DMA_HIFCR_CDMEIF5 | DMA_HIFCR_CFEIF5;
+
+    hdma_tim1_up.State = HAL_DMA_STATE_READY;
+    __HAL_UNLOCK(&hdma_tim1_up);
 #endif
     g_la_state = LA_STATE_IDLE;
 }
@@ -183,6 +191,10 @@ void la_core_on_tim2_period_elapsed_isr(void)
         /* Lưu vị trí con trỏ ghi DMA hiện tại (vị trí mẫu cũ nhất t0) */
         uint16_t ndtr = (uint16_t)(DMA2_Stream5->NDTR);
         g_captured_write_pos = (LA_BUFFER_SIZE - ndtr) % LA_BUFFER_SIZE;
+
+        /* Đưa handle DMA về trạng thái READY */
+        hdma_tim1_up.State = HAL_DMA_STATE_READY;
+        __HAL_UNLOCK(&hdma_tim1_up);
 #else
         g_captured_write_pos = 0;
 #endif

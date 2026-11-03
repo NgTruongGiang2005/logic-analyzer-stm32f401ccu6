@@ -83,8 +83,11 @@ Embedded_System/
 
 ### Dành cho TV1 (Firmware):
 1. Mở **STM32CubeIDE**, chọn `File -> Open Projects from File System...`, trỏ tới thư mục `firmware/`.
-2. Bấm nút **Build** (`Ctrl+B`) để kiểm tra biên dịch dự án.
-3. Cắm kit Black Pill vào mạch nạp ST-Link (SWDIO, SWCLK, GND, 3V3), chọn Run Debug với profile `STM32F401_STLink.launch`.
+2. Bấm nút **Build** (`Ctrl+B`) để kiểm tra biên dịch dự án (hoặc chạy CLI make từ terminal).
+3. **Nạp Firmware:**
+   * *Cách 1 (Chính thức - ROM USB DFU qua cáp Type-C):* Giữ `BOOT0`, bấm nhả `NRST`, chạy:
+     `STM32_Programmer_CLI -c port=usb1 -d firmware/STM32CubeIDE/Debug/firmware.elf -v -s`
+   * *Cách 2 (Debug SWD nâng cao):* Nối ST-Link (SWDIO, SWCLK, GND, 3V3), chọn Run Debug với profile `STM32F401_STLink.launch`.
 
 ### Dành cho TV3 (Python GUI & Decoder):
 1. Di chuyển vào thư mục `software/` và cài đặt thư viện phụ thuộc:
@@ -105,7 +108,18 @@ Embedded_System/
 
 ---
 
-## 5. Tài liệu Tham khảo Chính
+## 5. Tiến độ Triển khai Firmware (TV1)
+
+| Mốc triển khai | Nội dung kỹ thuật | Trạng thái |
+| :--- | :--- | :---: |
+| **Bước 1: Free-Run Base** | Thông luồng TIM1 -> DMA2 -> Buffer 32KB -> USB-CDC streaming. Kiểm chứng PING và 32KB data. | ✅ **Đã hoàn thành** |
+| **Bước 2: Loopback Self-Test** | USART1 TX trên PA9 phát test frame 115200 bps nối jumper sang PA0. | ✅ **Đã hoàn thành** |
+| **Bước 3: Full FSM Trigger** | DMA Half-Transfer -> Unmask EXTI -> Kích TIM2 One-Pulse -> Unroll Buffer. | ⏳ Chờ thực hiện |
+| **Bước 4: Edge Cases & Polish**| Timeout SysTick, Ping, Abort, NAK, USB Watchdog 100ms. | ⏳ Chờ thực hiện |
+
+---
+
+## 6. Tài liệu Tham khảo Chính
 * [Đề bài Yêu cầu Kỹ thuật](spec/Logic_analyzer_requirements.md)
 * [Bản Đặc tả Kỹ thuật Hệ thống](spec/logic_analyzer_specification.md)
 * [Hợp đồng Giao thức Truyền thông](spec/protocol.md)
