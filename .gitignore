@@ -1,0 +1,71 @@
+# ==============================================================================
+# GITIGNORE CHO DỰ ÁN HỆ THỐNG NHÚNG - LOGIC ANALYZER (STM32 + KICAD/ALTIUM + PYTHON)
+# ==============================================================================
+
+# --- 1. STM32CubeIDE / Eclipse Toolchain ---
+Debug/
+Release/
+build/
+*.elf
+*.hex
+*.map
+*.d
+*.o
+*.su
+*.cyclo
+
+# Eclipse User-specific Settings
+/.settings/
+.metadata/
+.loadpath
+*.pydevproject
+*.launch
+
+# Ngoại lệ: Cho phép cấu hình Debug ST-Link chuẩn dùng chung của nhóm
+!firmware/STM32F401_STLink.launch
+
+# --- 2. Ngoại lệ File nhị phân (Binary Exceptions) ---
+# Chặn toàn bộ file .bin do quá trình build firmware sinh ra...
+*.bin
+# ...NHƯNG cho phép file vector kiểm thử giả lập của TV3
+!software/tests/*.bin
+
+# --- 3. Mô phỏng LTspice (Chặn file dạng sóng siêu nặng) ---
+*.raw
+*.op.raw
+*.fft.raw
+*.net
+*.log
+
+# --- 4. Thiết kế Phần cứng (Altium Designer / KiCad) ---
+# Altium Backups & Previews
+History/
+__Previews/
+*.SchDoc.Zip
+*.PcbDoc.Zip
+
+# KiCad Backups & Temporary files
+*.bak
+*-bak
+*.kicad_prl
+*.bck
+_autosave-*
+fp-info-cache
+
+# --- 5. Host PC (Python / GUI) ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.spec
+dist/
+.venv/
+venv/
+env/
+.pytest_cache/
+
+# --- 6. Hệ điều hành & Thư mục rác ---
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*~

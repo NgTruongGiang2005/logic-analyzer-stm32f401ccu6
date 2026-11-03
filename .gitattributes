@@ -1,0 +1,28 @@
+# ==============================================================================
+# GITATTRIBUTES - CHUẨN HÓA ĐA NỀN TẢNG (LINUX / WINDOWS / MACOS)
+# ==============================================================================
+
+# Mặc định tự động nhận diện và chuẩn hóa kết thúc dòng cho file văn bản
+* text=auto
+
+# Khai báo rõ ràng LF cho mã nguồn
+*.c text eol=lf
+*.h text eol=lf
+*.s text eol=lf
+*.ld text eol=lf
+*.ioc text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.py text eol=lf
+*.asc text eol=lf
+
+# Khai báo file nhị phân (TUYỆT ĐỐI KHÔNG BIẾN ĐỔI KẾT THÚC DÒNG)
+*.bin binary
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.docx binary
+*.pptx binary
+*.xlsx binary
+*.step binary
