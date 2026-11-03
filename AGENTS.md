@@ -74,7 +74,9 @@ Agent tuyệt đối không tự ý thay đổi cấu trúc phần cứng đã c
    * **Priority 1:** `TIM2_IRQHandler` (Dừng lấy mẫu khi đủ $26.214$ mẫu).
    * **Priority 2:** `OTG_FS_IRQHandler` (Truyền thông USB-CDC).
 4. **Máy trạng thái FSM (State Machine):**
-   $$\text{IDLE} \longrightarrow \text{ARMED} \longrightarrow \text{PRE\_SAMPLING} \longrightarrow \text{WAIT\_TRIGGER} \longrightarrow \text{POST\_SAMPLING} \longrightarrow \text{TRANSFERRING} \longrightarrow \text{IDLE}$$
+   ```text
+   IDLE ───> ARMED ───> PRE_SAMPLING ───> WAIT_TRIGGER ───> POST_SAMPLING ───> TRANSFERRING ───> IDLE
+   ```
    * **Chống rỗng Pre-trigger (Bắt buộc):** Ở `PRE_SAMPLING`, cấm unmask EXTI ngay. Chỉ chuyển sang `WAIT_TRIGGER` và mở EXTI sau khi cờ DMA Half-Transfer (`HTIF5`) được bật (đã ghi ít nhất $16.384\text{ mẫu} \ge 20\%$).
    * **Chế độ Free-Run:** Bỏ qua ngắt EXTI; khi cờ `HTIF5` bật, kích hoạt ngay `TIM2` One-Pulse, không đếm timeout.
    * **Timeout Động:** $T_{\text{mcu-timeout}} = \frac{16384}{f_s} + 2.0\text{ s}$ đếm bằng `SysTick_Handler()`. Hết timeout mà chưa có trigger $\rightarrow$ MCU tự dừng và gửi Status `0x02`.
