@@ -16,6 +16,11 @@ Tài liệu này xác định các nguyên tắc ứng xử, quy chuẩn kỹ th
   * PA0 nối với nút KEY qua trở $330\,\Omega$ xuống GND (không có tụ dập nhiễu; lưu ý không nhấn nút khi đang đo).
   * Chân **PA9** dùng làm `USART1_TX` phát xung kiểm thử loopback $\implies$ **BẮT BUỘC PHẢI TẮT TÍNH NĂNG `VBUS sensing` của USB OTG_FS** trong CubeMX để giải phóng chân PA9.
   * Chân **PC13**: LED trạng thái trên kit (Active Low: kéo xuống mức 0 là bật sáng).
+* **Phương thức Nạp & Debug (Flashing Workflow):**
+  * TV1 sử dụng chế độ **ROM USB DFU Bootloader** (`0483:df11`) mặc định của chip STM32 qua cổng USB Type-C bằng `STM32CubeProgrammer` (CLI/GUI).
+  * **Không yêu cầu mạch nạp ngoài ST-Link** trong quá trình phát triển (vẫn giữ cấu hình chân SWD Serial Wire để tương thích ST-Link nếu cần).
+  * Quy trình vào DFU trên kit Black Pill: Nhấn giữ `BOOT0` (B0), bấm nhả `NRST`, giữ tiếp 1s rồi nhả `BOOT0`.
+  * Lệnh nạp CLI mẫu: `STM32_Programmer_CLI -c port=usb1 -d <file.elf> -v -s`.
 
 ---
 
