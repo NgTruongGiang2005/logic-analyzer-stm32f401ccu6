@@ -1,6 +1,6 @@
-# AGENTS.md: Hướng Dẫn & Quy Chuẩn Hoạt Động Cho AI Agent (Dành riêng cho TV1 - Firmware STM32)
+# AGENTS.md: Hướng Dẫn & Quy Chuẩn Hoạt Động Cho AI Agent (Dành riêng cho TV1: Nguyễn Văn Hội - Firmware STM32)
 
-Tài liệu này xác định các nguyên tắc ứng xử, quy chuẩn kỹ thuật, ràng buộc phần cứng, phong cách mã nguồn và quy trình kiểm thử bắt buộc đối với AI Coding Agent khi hỗ trợ **TV1 (Kỹ sư Firmware)** phát triển mã nguồn nhúng trong repository **`Embedded_System`** (Đề tài 1: Logic Analyzer 8 kênh 6 MHz - STM32F401CCU6).
+Tài liệu này xác định các nguyên tắc ứng xử, quy chuẩn kỹ thuật, ràng buộc phần cứng, phong cách mã nguồn và quy trình kiểm thử bắt buộc đối với AI Coding Agent khi hỗ trợ **TV1: Nguyễn Văn Hội (MSSV: 20233419 - Kỹ sư Firmware)** phát triển mã nguồn nhúng trong repository **`Embedded_System`** (Đề tài 1: Logic Analyzer 8 kênh 6 MHz - STM32F401CCU6).
 
 ---
 
@@ -17,7 +17,7 @@ Tài liệu này xác định các nguyên tắc ứng xử, quy chuẩn kỹ th
   * Chân **PA9** dùng làm `USART1_TX` phát xung kiểm thử loopback $\implies$ **BẮT BUỘC PHẢI TẮT TÍNH NĂNG `VBUS sensing` của USB OTG_FS** trong CubeMX để giải phóng chân PA9.
   * Chân **PC13**: LED trạng thái trên kit (Active Low: kéo xuống mức 0 là bật sáng).
 * **Phương thức Nạp & Debug (Flashing Workflow):**
-  * TV1 sử dụng chế độ **ROM USB DFU Bootloader** (`0483:df11`) mặc định của chip STM32 qua cổng USB Type-C bằng `STM32CubeProgrammer` (CLI/GUI).
+  * Nguyễn Văn Hội sử dụng chế độ **ROM USB DFU Bootloader** (`0483:df11`) mặc định của chip STM32 qua cổng USB Type-C bằng `STM32CubeProgrammer` (CLI/GUI).
   * **Không yêu cầu mạch nạp ngoài ST-Link** trong quá trình phát triển (vẫn giữ cấu hình chân SWD Serial Wire để tương thích ST-Link nếu cần).
   * Quy trình vào DFU trên kit Black Pill: Nhấn giữ `BOOT0` (B0), bấm nhả `NRST`, giữ tiếp 1s rồi nhả `BOOT0`.
   * Lệnh nạp CLI mẫu: `STM32_Programmer_CLI -c port=usb1 -d <file.elf> -v -s`.
@@ -46,7 +46,7 @@ Khi phát sinh mâu thuẫn kỹ thuật, Agent phải tuân thủ nghiêm ngặ
 ### 3.2. Các file và thư mục TUYỆT ĐỐI CẤM tự ý sửa đổi:
 * `Drivers/`, `Middlewares/`, `Core/Startup/startup_stm32f401ccux.s`, `STM32F401CCUX_FLASH.ld`.
 * File cấu hình `firmware/*.ioc`.
-* Các thư mục ngoài phân hệ firmware: `hardware/`, `software/`, `spec/` (trừ khi có chỉ đạo rõ ràng từ TV1).
+* Các thư mục ngoài phân hệ firmware: `hardware/`, `software/`, `spec/` (trừ khi có chỉ đạo rõ ràng từ Nguyễn Văn Hội).
 
 ### 3.3. Quy trình khi cần thay đổi cấu hình ngoại vi (CubeMX):
 * Agent **KHÔNG ĐƯỢC TỰ Ý SỬA** các file khởi tạo ngoại vi do CubeMX quản lý.

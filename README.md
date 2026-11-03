@@ -6,11 +6,11 @@
 
 ## 1. Phân công Thành viên & Vai trò (Team Roles)
 
-| Thành viên | Phân hệ Phụ trách | Thư mục Làm việc | Nhiệm vụ Trọng tâm |
-| :--- | :--- | :--- | :--- |
-| **TV1** | **Firmware STM32** | `firmware/` | Cấu hình SYSCLK 84MHz, USB-CDC 48MHz, TIM1+TIM2 Cascade, DMA2_Stream5 đọc GPIOA->IDR, FSM Pre/Post-trigger, kênh phát UART PA9. |
-| **TV2** | **Phần cứng & Mô phỏng** | `hardware/` | Mô phỏng LTspice 4 kịch bản (quá áp +12V..+15V 8 kênh, xung 200V / 1ms 1 kênh trên trở động, đáp ứng 1-3MHz), thiết kế Schematic/PCB bảo vệ & đệm 74LVC245. |
-| **TV3** | **Phần mềm PC (GUI & Decoder)** | `software/` | Viết Python Desktop GUI (PyQt5 + pyqtgraph), thuật toán giải mã UART 115200 bps (mở rộng I2C/SPI), bộ kiểm thử mock serial. |
+| Mã vai trò | Họ và Tên | MSSV | Phân hệ Phụ trách | Thư mục Làm việc | Nhiệm vụ Trọng tâm |
+| :---: | :--- | :---: | :--- | :--- | :--- |
+| **TV1** | **Nguyễn Văn Hội** | **20233419** | **Firmware STM32** | `firmware/` | Cấu hình SYSCLK 84MHz, USB-CDC 48MHz, TIM1+TIM2 Cascade, DMA2_Stream5 đọc GPIOA->IDR, FSM Pre/Post-trigger, kênh phát UART PA9. |
+| **TV2** | **Nguyễn Văn Khang** | **20233458** | **Phần cứng & Mô phỏng** | `hardware/` | Mô phỏng LTspice 4 kịch bản (quá áp +12V..+15V 8 kênh, xung 200V / 1ms 1 kênh trên trở động, đáp ứng 1-3MHz), thiết kế Schematic/PCB bảo vệ & đệm 74LVC245. |
+| **TV3** | **Nguyễn Trường Giang** | **20233374** | **Phần mềm PC (GUI & Decoder)** | `software/` | Viết Python Desktop GUI (PyQt5 + pyqtgraph), thuật toán giải mã UART 115200 bps (mở rộng I2C/SPI), bộ kiểm thử mock serial. |
 
 ---
 

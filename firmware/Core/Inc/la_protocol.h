@@ -2,7 +2,7 @@
   ******************************************************************************
   * @file    la_protocol.h
   * @brief   Xử lý khung truyền nhị phân và mã hóa gói tin USB-CDC.
-  *          Thành viên phụ trách: TV1 (Firmware STM32).
+  * @author  Nguyen Van Hoi (Firmware Engineer)
   ******************************************************************************
   */
 

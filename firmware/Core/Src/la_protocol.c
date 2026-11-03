@@ -2,7 +2,7 @@
   ******************************************************************************
   * @file    la_protocol.c
   * @brief   Triển khai bộ giải mã khung truyền USB-CDC theo protocol.md.
-  *          Thành viên phụ trách: TV1 (Firmware STM32).
+  * @author  Nguyen Van Hoi (Firmware Engineer)
   ******************************************************************************
   */
 

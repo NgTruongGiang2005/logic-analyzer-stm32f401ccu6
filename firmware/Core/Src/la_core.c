@@ -2,7 +2,7 @@
   ******************************************************************************
   * @file    la_core.c
   * @brief   Triển khai bộ điều khiển lõi Logic Analyzer.
-  *          Thành viên phụ trách: TV1 (Firmware STM32).
+  * @author  Nguyen Van Hoi (Firmware Engineer)
   ******************************************************************************
   */
 

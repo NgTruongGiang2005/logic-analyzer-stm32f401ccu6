@@ -2,7 +2,7 @@
   ******************************************************************************
   * @file    la_testgen.c
   * @brief   Triển khai kênh phát tín hiệu mẫu tự kiểm tra trên chân PA9.
-  *          Thành viên phụ trách: TV1 (Firmware STM32).
+  * @author  Nguyen Van Hoi (Firmware Engineer)
   ******************************************************************************
   */
 

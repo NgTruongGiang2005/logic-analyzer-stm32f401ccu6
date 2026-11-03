@@ -2,7 +2,7 @@
   ******************************************************************************
   * @file    la_core.h
   * @brief   Bộ điều khiển lõi Logic Analyzer (FSM, Timer Cascade, DMA2).
-  *          Thành viên phụ trách: TV1 (Firmware STM32).
+  * @author  Nguyen Van Hoi (Firmware Engineer)
   ******************************************************************************
   */
 
