@@ -107,47 +107,32 @@
     * `USB OTG_FS IRQ`: Priority 2 (Tránh ngắt USB làm trễ sự kiện chốt trigger).
 
 * **Quy trình thực thi chi tiết (FSM State Machine):**
-  1. **Trạng thái ARMED (Nhận lệnh 0x01):** Khởi tạo `DMA2_Stream5 Channel 6` (Circular Mode, độ dài 32.768 B, Peripheral = `&GPIOA->IDR`, Memory = `capture_buf`). Kích hoạt TIM1. Khóa tạm thời ngắt EXTI.
-  2. **Trạng thái PRE-SAMPLING (Đồng bộ cờ Half-Transfer):** Đợi cờ ngắt DMA Half-Transfer (`HTIF5` bật khi ghi được 50% = 16384 mẫu $\ge$ 20% yêu cầu). Khi cờ bật, chắc chắn 100% dữ liệu lịch sử đã đầy đủ:
-     * Nếu chế độ Trigger cạnh: Unmask cho phép ngắt EXTI trên kênh được chỉ định, đồng thời kích hoạt bộ đếm thời gian thực SysTick theo dõi Timeout: $T_{\text{mcu-timeout}} = (16384 / f_s) + 2.0\text{ s}$. Nếu quá hạn mà không có cạnh trigger, SysTick ngắt và chuyển FSM sang dừng capture, gửi gói tin với `Status = 0x02`.
-     * Nếu chế độ Free-Run: Kích hoạt ngay lập tức TIM2 One-Pulse (bỏ qua ngắt EXTI và không kích hoạt bộ đếm timeout).
-  3. **Trạng thái TRIGGERED:** Khi cạnh tín hiệu xuất hiện, trình phục vụ ngắt `EXTI_IRQHandler` (Priority 0) thực thi lệnh kích hoạt TIM2: `TIM2->CR1 |= TIM_CR1_CEN`, hủy bộ đếm timeout và vô hiệu hóa ngay ngắt EXTI.
+  1. **Trạng thái ARMED (Nhận lệnh 0x01):** Khởi tạo `DMA2_Stream5 Channel 6` (Circular Mode, độ dài 32.768 B, Peripheral = `&GPIOA->IDR`, Memory = `la_capture_buffer`). Kích hoạt TIM1. Khóa tạm thời ngắt EXTI.
+  2. **Trạng thái PRE-SAMPLING (Đồng bộ cờ Half-Transfer):** Đợi cờ ngắt DMA Half-Transfer (`HTIF5` bật khi ghi được 50% = 16.384 mẫu $\ge 20\%$ yêu cầu). Khi cờ bật, chắc chắn 100% dữ liệu lịch sử pre-trigger đã đầy đủ:
+     * Nếu chế độ Trigger cạnh: Unmask cho phép ngắt EXTI trên kênh được chỉ định, chuyển FSM sang `WAIT_TRIGGER`, đồng thời kích hoạt bộ đếm thời gian thực SysTick theo dõi Timeout: $T_{\text{mcu-timeout}} = (16384 / f_s) + 2.0\text{ s}$. Nếu quá hạn mà không có cạnh trigger, SysTick ngắt và chuyển FSM sang dừng capture, gửi gói tin với `Status = 0x02`.
+     * Nếu chế độ Free-Run: Kích hoạt ngay lập tức TIM2 One-Pulse (bỏ qua ngắt EXTI và không kích hoạt bộ đếm timeout), chuyển FSM sang `POST_SAMPLING`.
+  3. **Sự kiện TRIGGER (Ngắt EXTI):** Khi cạnh tín hiệu xuất hiện trên kênh chỉ định, trình phục vụ ngắt `EXTI_IRQHandler` (Priority 0) thực thi lệnh kích hoạt TIM2: `TIM2->CR1 |= TIM_CR1_CEN`, hủy bộ đếm timeout, vô hiệu hóa ngắt EXTI và chuyển FSM sang trạng thái `POST_SAMPLING`.
      * *Phân tích trễ ngắt:* Ước lượng lý thuyết trễ vào ngắt NVIC Cortex-M4 ($\approx 12-14$ clock cycles @ 84 MHz) kết hợp với các lệnh trong handler, việc TIM2 đồng bộ theo chu kỳ update kế tiếp của TIM1, và độ trễ khi dừng TIM1 trong ISR TIM2 tạo ra độ bất định thực tế cỡ vài mẫu ở 6 MHz. Firmware sẽ toggle một chân GPIO debug (PB1) trong ISR để đo đạc chính xác bằng oscilloscope/logic analyzer và ghi số liệu thực nghiệm vào báo cáo.
   4. **Trạng thái POST-SAMPLING:** TIM2 đếm đủ 26.214 xung → ngắt tràn `TIM2_IRQHandler` (Priority 1) lập tức dừng TIM1 (`TIM1->CR1 &= ~TIM_CR1_CEN`). Chuyển FSM sang `TRANSFERRING`.
   5. **Trạng thái TRANSFERRING (Đóng gói & Truyền USB-CDC):**
-     * Đọc vị trí con trỏ cuối: `head_idx = 32768 - DMA2_Stream5->NDTR`.
-     * Điểm mốc Trigger chuẩn hóa: `trig_offset = 6554`.
-     * Đóng gói khung truyền 32.776 Bytes: Header (7B) + Đoạn 1 (`&capture_buf[head_idx]`, dài `32768 - head_idx`) + Đoạn 2 (`&capture_buf[0]`, dài `head_idx`) + Footer Checksum XOR (1B).
+     * Đọc vị trí con trỏ cuối: `write_pos = 32768 - DMA2_Stream5->NDTR` (vị trí của mẫu cũ nhất $t_0$).
+     * Điểm mốc Trigger chuẩn hóa: `trig_offset = 6554` (mẫu $t_{6554}$).
+     * Đóng gói khung truyền 32.776 Bytes theo cơ chế Buffer Unrolling: Header (7B) + Đoạn 1 (`&la_capture_buffer[write_pos]`, dài `32768 - write_pos`) + Đoạn 2 (`&la_capture_buffer[0]`, dài `write_pos`) + Footer Checksum XOR (1B).
      * Quản lý truyền USB-CDC: Phân đoạn truyền theo block (512 Bytes) và kiểm tra cờ bận `hcdc->TxState == 0` kết hợp callback `CDC_TransmitCplt_FS()` trước mỗi lượt gửi để tránh nghẽn Endpoint Bulk.
 
 ---
 
 ### 4.3. Giao thức Giao tiếp (Communication Protocol Contract)
 
-* **Khung lệnh điều khiển từ PC (5 Bytes cố định):**
-```text
-+-----------+----------+----------+----------+----------+
-|  Byte 0   |  Byte 1  |  Byte 2  |  Byte 3  |  Byte 4  |
-+-----------+----------+----------+----------+----------+
-|   0xA5    |  CMD_ID  | RATE_IDX | TRIG_CFG | CHECKSUM |
-+-----------+----------+----------+----------+----------+
-```
-  * `CMD_ID`: `0x01` (Start Capture), `0x02` (Abort/Stop), `0x03` (Ping Test).
-  * `RATE_IDX`: Giá trị từ `0` đến `8` tương ứng 9 cấp tần số lấy mẫu (6 MHz down to 10 kHz).
-  * `TRIG_CFG`: 
-    * 4 bit cao `[7:4]`: Kênh kích hoạt (`0` đến `7`).
-    * 4 bit thấp `[3:0]`: Chế độ trigger (`0x0` = Free-run, `0x1` = Rising Edge, `0x2` = Falling Edge).
-  * `CHECKSUM`: `Byte 0 ⊕ Byte 1 ⊕ Byte 2 ⊕ Byte 3`.
+> [!IMPORTANT]
+> **Nguồn chân lý duy nhất (SSoT):** Toàn bộ đặc tả chi tiết byte-level, mã lệnh (5B), mã phản hồi điều khiển/NAK (7B), gói dữ liệu (32.776B), thuật toán sliding window và bộ vector test được quy định tuyệt đối tại [**`spec/protocol.md`**](protocol.md).
 
-* **Gói dữ liệu phản hồi từ STM32 (32.776 Bytes cố định):**
-  * **Header (7 Bytes):**
-    * Byte 0 – 1: `0x5A`, `0xA5` (Magic Header).
-    * Byte 2: `Status` (`0x00` = Trigger OK, `0x01` = Free-run OK, `0x02` = Timeout).
-      *(Lưu ý: Khi Abort, MCU trả khung Control 7B RSP_ABORTED mã 0x05 chứ không gửi khung Data 32KB dở dang. Chi tiết toàn diện về khung Control 7B, mã NAK và vector test xem tại [protocol.md](protocol.md)).*
-    * Byte 3 – 4: `trig_offset` = `6554` (uint16_t Little-Endian: `0x9A, 0x19`).
-    * Byte 5 – 6: `sample_count` = `32768` (uint16_t Little-Endian: `0x00, 0x80`).
-  * **Payload (32.768 Bytes):** Mảng byte dữ liệu mẫu đã được firmware sắp xếp liên tục theo đúng trình tự thời gian tăng dần từ mẫu 0 đến mẫu 32.767.
-  * **Footer (1 Byte):** Byte kiểm tra XOR tính trên toàn bộ 32.768 bytes dữ liệu mẫu.
+* **Tóm tắt Khung lệnh từ PC (5 Bytes cố định):**
+  * `0xA5` (Magic) + `CMD_ID` (`0x01` Start, `0x02` Abort, `0x03` Ping) + `RATE_IDX` (`0..8`) + `TRIG_CFG` (Kênh `[7:4]`, Mode `[3:0]`) + `CHECKSUM` (XOR byte 0..3).
+* **Tóm tắt Khung phản hồi từ STM32:**
+  * **Data Frame (32.776 Bytes):** Header 7B (`0x5A, 0xA5`, Status `0x00..0x02`, `trig_offset = 6554` Little-Endian `0x9A, 0x19`, `sample_count = 32768` Little-Endian `0x00, 0x80`) + Payload 32.768B unrolled + Footer 1B XOR payload.
+  * **Control / NAK Frame (7 Bytes):** `0x5A, 0xA5` + `RSP_CODE` (`0x04` Pong, `0x05` Abort ACK, `0xE0..0xE3` NAK) + 3 byte Echo/Data + Checksum XOR 6 byte trước.
+  * Khi Abort, MCU trả khung Control 7B `RSP_ABORTED` (`0x05`) chứ không gửi khung Data 32KB dở dang. Chi tiết toàn diện xem tại [**`protocol.md`**](protocol.md).
 
 ---
 

@@ -58,7 +58,7 @@ Khi phát sinh mâu thuẫn kỹ thuật, Agent phải tuân thủ nghiêm ngặ
 Agent tuyệt đối không tự ý thay đổi cấu trúc phần cứng đã chốt:
 
 1. **Lấy mẫu tín hiệu (Sampling Engine):**
-   * `TIM1` Update TRGO $\rightarrow$ kích hoạt `DMA2_Stream5 Channel 6` đọc từ `GPIOA->IDR` (PA0–PA7) vào mảng tĩnh `la_sample_buffer[32768]` ở chế độ Circular.
+   * `TIM1` Update TRGO $\rightarrow$ kích hoạt `DMA2_Stream5 Channel 6` đọc từ `GPIOA->IDR` (PA0–PA7) vào mảng tĩnh `la_capture_buffer[32768]` ở chế độ Circular.
    * **Bảng ARR chuẩn của TIM1 (PSC = 0, Clock = 84 MHz):**
      * `13` (6 MHz), `27` (3 MHz), `41` (2 MHz), `83` (1 MHz), `167` (500 kHz), `419` (200 kHz), `839` (100 kHz), `1679` (50 kHz), `8399` (10 kHz).
 2. **Bộ đếm Post-trigger (Hardware Counter):**
@@ -109,7 +109,7 @@ Agent tuyệt đối không tự ý thay đổi cấu trúc phần cứng đã c
    * **CẤM DÙNG CẤP PHÁT ĐỘNG (`malloc`, `free`)**.
    * CẤM đệ quy (recursion).
    * CẤM mảng kích thước biến động trên stack (VLA - Variable Length Arrays).
-   * Bộ đệm mẫu 32 KB phải khai báo tĩnh: `static uint8_t la_sample_buffer[32768];`.
+   * Bộ đệm mẫu 32 KB phải khai báo tĩnh: `static uint8_t la_capture_buffer[32768];`.
 4. **Quy ước đặt tên (Naming Conventions):**
    * Hàm nghiệp vụ: `la_<module>_<action>` (ví dụ: `la_core_start_capture`, `la_protocol_send_control_frame`).
    * Macro và Hằng số: `LA_<NAME>` (ví dụ: `LA_BUFFER_SIZE`, `LA_TRIG_OFFSET_DEFAULT`).
