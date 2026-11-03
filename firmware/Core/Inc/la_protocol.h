@@ -31,7 +31,7 @@ void la_protocol_process_rx_bytes(const uint8_t *data, uint32_t len);
 /* Gửi khung phản hồi điều khiển 7 Bytes (PONG, ABORT ACK, NAK) */
 void la_protocol_send_control_frame(uint8_t rsp_code, uint8_t d1, uint8_t d2, uint8_t d3);
 
-/* Gửi khung phản hồi dữ liệu 32.776 Bytes */
-void la_protocol_send_data_frame(uint8_t status, uint16_t trig_offset, const uint8_t *payload, uint16_t count);
+/* Gửi khung phản hồi dữ liệu 32.776 Bytes kèm xoay vòng bộ đệm (Buffer Unrolling) */
+void la_protocol_send_data_frame(uint8_t status, uint16_t trig_offset, const uint8_t *payload, uint16_t write_pos);
 
 #endif /* INC_LA_PROTOCOL_H_ */
