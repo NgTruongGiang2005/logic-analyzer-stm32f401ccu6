@@ -49,6 +49,9 @@ Do `CDC_Receive_FS()` có thể nhận dữ liệu phân mảnh thành từng by
 * **Thuật toán quét trượt (Sliding Window):** Firmware tìm kiếm byte `0xA5`. Khi tìm thấy và bộ đệm có đủ 5 bytes, tính XOR Checksum.
 * **Xử lý sai Checksum:** Nếu Checksum sai hoặc thông số ngoài dải, firmware gửi phản hồi NAK tương ứng, sau đó **chỉ loại bỏ đúng 1 byte `0xA5` đầu tiên** rồi tiếp tục quét tiếp (không xả sạch bộ đệm để không làm mất lệnh hợp lệ nối ngay phía sau).
 
+> [!NOTE]
+> **Lưu ý về hiện tượng NAK giả (Spurious NAK):** Do thuật toán quét trượt chỉ loại bỏ 1 byte `0xA5` khi gặp lỗi, nếu trong các byte tham số của một lệnh sai ngẫu nhiên có chứa giá trị `0xA5`, firmware có thể bắt nhầm đó là mốc bắt đầu mới và phát sinh thêm một khung NAK tiếp theo. Đây là hiện tượng chấp nhận được trong mô hình truyền byte stream không đồng bộ; phía GUI (TV3) chỉ cần đối chiếu mã lỗi với lệnh vừa gửi gần nhất và không coi mọi NAK nhận được sau đó là phản hồi cho lệnh mới.
+
 ---
 
 ## 2. Các Khung Dữ liệu Phản hồi từ STM32 (Device -> Host)
@@ -73,7 +76,7 @@ MCU phản hồi về PC bằng một trong hai loại khung cố định kích 
 ```
 
 * **Header (7 Bytes):**
-  * `Byte 0 – 1`: `0x5A, 0xA5` (Sync Magic Word - Little-Endian).
+  * `Byte 0 – 1`: `0x5A, 0xA5` (Chuỗi byte đồng bộ cố định: Byte 0 = `0x5A`, Byte 1 = `0xA5`).
   * `Byte 2`: **Status Byte**
     * `0x00`: **STATUS_TRIGGER_OK** (Bắt được cạnh trigger và ghi đủ 80% post-trigger).
     * `0x01`: **STATUS_FREERUN_OK** (Chế độ Free-run nạp đầy 100% dung lượng bộ đệm).
@@ -82,11 +85,16 @@ MCU phản hồi về PC bằng một trong hai loại khung cố định kích 
     *(Vị trí index của điểm trigger trong mảng 32KB; với Free-run mang tính tham khảo).*
   * `Byte 5 – 6`: **`sample_count`** = `32768` (uint16_t Little-Endian: `0x00, 0x80`).
 * **Payload (32.768 Bytes):** 
-  * Mảng dữ liệu mẫu được sắp xếp liên tục từ mẫu cũ nhất ($t_0$) đến mẫu mới nhất ($t_{32767}$).
-  * *Quy tắc khi Timeout:* **Vẫn gửi trọn vẹn 32.768 Bytes**. Lý do: Với công thức timeout $T_{\text{mcu-timeout}} = \frac{16384}{f_s} + 2.0\text{ s}$, thời gian này luôn lớn hơn thời gian nạp đầy toàn bộ bộ đệm $\frac{32768}{f_s}$ đối với mọi tần số $f_s \ge 8.2\text{ kHz}$ ($8.2\text{ kHz} \le 10\text{ kHz}$ - mức thấp nhất). Vì vậy khi timeout xảy ra, **bộ đệm 32KB luôn đầy 100% dữ liệu hợp lệ**, giúp người dùng quan sát được sóng trước sự kiện để tìm nguyên nhân không trigger.
+  * Mảng dữ liệu mẫu được sắp xếp liên tục theo trục thời gian từ mẫu cũ nhất ($t_0$) đến mẫu mới nhất ($t_{32767}$).
+  * **Cơ chế xoay vòng bộ đệm (Buffer Unrolling) của Firmware:** Do `DMA2_Stream5` hoạt động ở chế độ Circular ghi vòng liên tục vào `la_capture_buffer[32768]`, khi quá trình lấy mẫu dừng lại (do ngắt TIM2 đếm đủ 26.214 mẫu post-trigger hoặc do Timeout), vị trí con trỏ ghi DMA hiện tại (xác định qua `write_pos = 32768 - DMA2_Stream5->NDTR`) chính là vị trí của **mẫu cũ nhất ($t_0$)**, còn mẫu ngay liền trước nó là **mẫu mới nhất ($t_{32767}$)**.
+  * Trước khi đẩy qua USB, Firmware có trách nhiệm xoay vòng (unroll) dữ liệu sao cho mẫu tại `write_pos` luôn được đưa về đầu khung payload (index `0`). Nhờ đó, điểm trigger luôn nằm cố định tại vị trí mẫu thứ `trig_offset = 6554` ($t_{6554}$).
+  * *Quy tắc khi Timeout:* **Vẫn gửi trọn vẹn 32.768 Bytes** và thực hiện xoay vòng từ `write_pos` tương tự như trên. Lý do: Với công thức timeout $T_{\text{mcu-timeout}} = \frac{16384}{f_s} + 2.0\text{ s}$, thời gian này luôn lớn hơn thời gian nạp đầy toàn bộ bộ đệm $\frac{32768}{f_s}$ đối với mọi tần số $f_s \ge 8.2\text{ kHz}$ ($8.2\text{ kHz} \le 10\text{ kHz}$ - mức thấp nhất). Khi timeout xảy ra, **bộ đệm 32KB luôn đầy 100% dữ liệu hợp lệ và liên tục**, giúp người dùng phân tích được tín hiệu trước thời điểm timeout.
 * **Footer (1 Byte):** 
   * Byte kiểm tra XOR tính toán trên toàn bộ 32.768 bytes của phần Payload:
     $$\text{Footer} = \bigoplus_{i=0}^{32767} \text{Payload}[i]$$
+
+> [!NOTE]
+> **Giới hạn bảo vệ của Footer Checksum:** Byte Footer chỉ tính XOR cho $32.768\text{ Bytes}$ Payload (không bao gồm 7 bytes Header) nhằm tối ưu tốc độ xử lý trong firmware. Tính toàn vẹn của Header được bảo vệ gián tiếp thông qua chuỗi byte đồng bộ `0x5A, 0xA5` và trường hằng số kích thước `sample_count = 32768` (`0x00, 0x80`). Đây là hạn chế kỹ thuật chấp nhận được của phiên bản v1.0.0.
 
 ---
 
@@ -192,20 +200,33 @@ sequenceDiagram
    * Nếu Byte 2 $\in \{0x04, 0x05, 0xE0, 0xE1, 0xE2, 0xE3\}$: Xác định là **Control Frame (7 Bytes)**. GUI kiểm tra XOR của 7 bytes này và kết thúc lượt đọc ngay lập tức.
    * Nếu Byte 2 không thuộc hai tập trên: Dữ liệu bị nhiễu/lệch, dịch con trỏ qua vị trí `0x5A, 0xA5` hiện tại 1 byte và tiếp tục quét trượt.
 
-### 4.2. Khóa Lệnh khi đang Truyền Dữ liệu (State Locking)
-* **Quy tắc tuyệt đối:** Khi FSM ở trạng thái **`TRANSFERRING`** (đang đẩy 32.776B qua USB-CDC):
-  * **Phía MCU:** Bỏ qua hoàn toàn mọi byte nhận được từ cổng USB. Không bao giờ phát sinh khung NAK hay PONG chen ngang vào giữa dòng dữ liệu 32KB.
-  * **Phía GUI:** Bị khóa giao diện, cấm gửi bất kỳ lệnh nào (kể cả Ping hay Start) cho đến khi hoàn tất việc nhận trọn vẹn 32.776 bytes hoặc sau khi quá hạn $T_{\text{gui-timeout}}$.
-* Lệnh `CMD_PING` và `CMD_ABORT` chỉ được xử lý khi FSM ở `IDLE`, `ARMED` hoặc `SAMPLING`.
+### 4.2. Khóa Lệnh khi đang Truyền Dữ liệu & Quản lý Trạng thái FSM (State Locking)
+* **Chuẩn hóa các trạng thái FSM lõi của Firmware:**
+  * `IDLE`: Chờ lệnh, sẵn sàng nhận `CMD_START`, `CMD_PING`, `CMD_ABORT`.
+  * `ARMED` & `PRE_SAMPLING`: Đã bật TIM1 + DMA2, đang ghi vòng nạp tối thiểu 50% bộ đệm (16.384 mẫu) để đảm bảo pre-trigger.
+  * `WAIT_TRIGGER`: Đã kích hoạt ngắt EXTI trên chân chỉ định, đang đợi cạnh xung kích hoạt (hoặc theo dõi timeout).
+  * `POST_SAMPLING`: Đã phát hiện cạnh trigger, TIM2 One-Pulse đang đếm nốt $26.214\text{ mẫu}$ post-trigger.
+  * `TRANSFERRING`: Đang đẩy $32.776\text{ Bytes}$ dữ liệu qua cổng USB-CDC.
+* **Quy tắc phân xử lệnh nhận từ PC:**
+  * **Khi FSM ở `TRANSFERRING`:**
+    * **Phía MCU:** Bỏ qua hoàn toàn (drop) mọi byte nhận được từ cổng USB. Tuyệt đối không phát sinh khung NAK hay PONG chen ngang làm hỏng luồng dữ liệu 32KB.
+    * **Phía GUI:** Bị khóa các nút bấm trên giao diện, cấm gửi bất kỳ lệnh nào (kể cả Ping hay Start) cho đến khi hoàn tất việc nhận trọn vẹn $32.776\text{ Bytes}$ hoặc sau khi quá hạn $T_{\text{gui-timeout}}$.
+  * **Khi FSM ở `ARMED`, `PRE_SAMPLING`, `WAIT_TRIGGER`, `POST_SAMPLING`:**
+    * Nếu nhận lệnh `CMD_START`: MCU từ chối và phản hồi ngay khung Control 7B với mã lỗi `ERR_BUSY` (`0xE3`).
+    * Nếu nhận lệnh `CMD_PING`: Phản hồi `RSP_PONG` (`0x04`).
+    * Nếu nhận lệnh `CMD_ABORT`: Dừng khẩn cấp Timer/DMA, reset FSM về `IDLE` và phản hồi `RSP_ABORTED` (`0x05`).
 
 ### 4.3. Quy tắc Thời gian Chờ (Timeout Budget)
 * **Phía MCU ($T_{\text{mcu-timeout}}$):**
   $$T_{\text{mcu-timeout}} = \frac{16384}{f_s} + T_{\text{wait}}$$
   * Trong phiên bản v1.0.0, **$T_{\text{wait}} = 2.0\text{ s}$ cố định**.
-  * Định thời thực hiện bằng biến đếm mili-giây trong trình phục vụ ngắt `SysTick_Handler()`.
+  * Định thời thực hiện bằng biến đếm mili-giây trong trình phục vụ ngắt `SysTick_Handler()`. Hết thời gian này mà chưa xuất hiện cạnh trigger, MCU tự động dừng lấy mẫu và gửi data frame với Status `0x02` (`STATUS_TIMEOUT`).
 * **Phía GUI Serial ($T_{\text{gui-timeout}}$):**
-  $$T_{\text{gui-timeout}} = T_{\text{mcu-timeout}} + 1.5\text{ s}$$
-  *(GUI luôn cộng thêm $1.5\text{ s}$ dự phòng độ trễ USB để không bao giờ ngắt kết nối trước MCU).*
+  Nếu cạnh trigger xuất hiện sát nút ở cuối cửa sổ chờ $2.0\text{ s}$, MCU vẫn phải tiếp tục lấy thêm $26.214\text{ mẫu}$ post-trigger trước khi truyền dữ liệu. Do đó, thời gian chờ tối đa phía GUI bắt buộc phải tính cả thời gian lấy mẫu post-trigger cộng thêm biên an toàn trễ USB ($1.5\text{ s}$):
+  $$T_{\text{gui-timeout}} = \frac{16384 + 26214}{f_s} + T_{\text{wait}} + 1.5\text{ s} = \frac{42598}{f_s} + 3.5\text{ s}$$
+  *Ví dụ tại tần số thấp nhất $10\text{ kHz}$:*
+  $$T_{\text{gui-timeout}} = \frac{42598}{10000} + 3.5 = 4.26\text{ s} + 3.5\text{ s} \approx 7.76\text{ s}$$
+  *(Công thức này đảm bảo GUI không bao giờ ngắt kết nối hoặc báo lỗi timeout oan trước khi MCU hoàn tất chu trình capture).*
 
 ### 4.4. Bảo vệ Chống Treo Cáp USB (`TxState` Watchdog)
 * Khi gọi `CDC_Transmit_FS()` cho từng khối block 512B:
@@ -239,8 +260,8 @@ sequenceDiagram
   `5A A5 05 00 00 00 FA`  
   *(Kiểm tra: $0x5A \oplus 0xA5 \oplus 0x05 \oplus 0x00 \oplus 0x00 \oplus 0x00 = 0xFA$)*.
 * **NAK Sai Checksum (Lệnh gửi A5 01 00 01 00):**
-  `5A A5 E0 01 00 01 1B`  
-  *(Echo lại CMD=01, RATE=00, TRIG=01; Checksum = $0x5A \oplus 0xA5 \oplus 0xE0 \oplus 0x01 \oplus 0x00 \oplus 0x01 = 0x1B$)*.
+  `5A A5 E0 01 00 01 1F`  
+  *(Echo lại CMD=01, RATE=00, TRIG=01; Checksum = $0x5A \oplus 0xA5 \oplus 0xE0 \oplus 0x01 \oplus 0x00 \oplus 0x01 = 0x1F$)*.
 
 ### 5.3. Cấu trúc Tệp Dữ liệu Giả lập `software/tests/sample_data_1mhz.bin`
 Tệp nhị phân giả lập đúng **32.776 Bytes** phục vụ TV3 kiểm thử GUI độc lập:
@@ -250,7 +271,7 @@ Tệp nhị phân giả lập đúng **32.776 Bytes** phục vụ TV3 kiểm th�
   * **Kênh 1 – 7:** Cố định mức logic 0 (`0x00`).
   * **Kênh 0 (PA0):** Tín hiệu UART TX chuẩn 115.200 bps:
     * Trạng thái nghỉ (Idle) của UART: Mức cao (Bit 0 của các byte = `1`).
-    * **Start bit đầu tiên:** Cạnh xuống (Falling edge) từ `1` về `0` được đặt **chính xác tại mẫu index 6554** để khớp hoàn hảo với vạch trigger của GUI.
+    * **Định vị điểm Trigger:** Các mẫu từ index `0` đến `6553` ở mức cao `1` (UART Idle); mẫu index `6554` là mẫu đầu tiên chuyển xuống mức thấp `0` (Falling edge - Start bit của UART) để khớp hoàn hảo với mốc `trig_offset = 6554` của GUI.
     * Nội dung ký tự truyền: Chuỗi `"TEST_LA_2026\r\n"`.
     * Độ rộng mỗi bit UART tại 1 MHz: $\frac{1.000.000}{115.200} \approx 8.68\text{ mẫu}$.
 * **1 Byte Footer:** Byte XOR của toàn bộ 32KB payload.

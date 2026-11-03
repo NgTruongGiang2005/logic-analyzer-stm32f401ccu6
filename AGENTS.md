@@ -63,15 +63,18 @@ Mọi quyết định thiết kế firmware phải tuân theo thứ bậc tài l
    * Xung nhịp: SYSCLK = 84 MHz, APB1/APB2 Timer clocks = 84 MHz.
    * `TIM1` Update TRGO $\rightarrow$ kích hoạt `DMA2_Stream5 Channel 6` đọc từ `GPIOA->IDR` (PA0–PA7) vào `la_sample_buffer` (chế độ Circular).
 2. **Bộ đếm Post-trigger:**
-   * `TIM2` Slave mode ITR0 (nối với `TIM1_TRGO`), External Clock Mode 1, One-Pulse Mode.
-   * Ngắt `TIM2_IRQHandler` dừng hệ thống khi đếm đủ $26.213$ xung (tương ứng 80% bộ đệm sau trigger).
+   * `TIM2` Slave mode ITR0 (nối với `TIM1_TRGO`), External Clock Mode 1, One-Pulse Mode (`ARR = 26213`).
+   * Ngắt `TIM2_IRQHandler` dừng hệ thống khi đếm đủ $26.214$ xung (tương ứng 80% bộ đệm sau trigger).
 3. **Chống rỗng Pre-trigger (Bắt buộc):**
    * Tuyệt đối không bật ngắt trigger EXTI ngay khi nhận lệnh START.
    * Chỉ kích hoạt ngắt trigger EXTI sau khi cờ DMA Half-Transfer (`HTIF5`) được bật (đã ghi ít nhất 16.384 mẫu = 50% buffer), đảm bảo luôn có đủ $\ge 20\%$ pre-trigger data.
-4. **Xung đột PA9 (Sống còn):**
+4. **Xoay vòng bộ đệm (Buffer Unrolling):**
+   * Do DMA2 ghi vòng Circular, khi dừng lấy mẫu, vị trí con trỏ `write_pos = 32768 - DMA2_Stream5->NDTR` là vị trí của mẫu cũ nhất ($t_0$).
+   * Firmware phải gửi dữ liệu xoay vòng từ `write_pos` đến cuối mảng rồi tiếp tục từ đầu mảng đến `write_pos - 1`, đảm bảo điểm trigger luôn khớp đúng mốc `trig_offset = 6554` và dữ liệu liên tục theo thời gian (kể cả khi Timeout).
+5. **Xung đột PA9 (Sống còn):**
    * Chân PA9 được dùng làm `USART1_TX` phát xung test.
    * Phải **tắt tính năng `VBUS sensing` của USB OTG_FS** trong CubeMX để giải phóng chân PA9, tránh xung đột phần cứng.
-5. **Chân Debug & Ngoại vi phụ:**
+6. **Chân Debug & Ngoại vi phụ:**
    * **PC13**: LED trạng thái trên kit Black Pill V3.0 (Active Low: kéo xuống 0 là sáng).
    * **PA0**: Chân nối với nút KEY qua trở $330\,\Omega$ xuống GND (không có tụ). Cần lưu ý không nhấn nút trong lúc lấy mẫu.
 
