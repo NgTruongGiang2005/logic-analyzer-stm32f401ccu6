@@ -77,13 +77,13 @@ MCU phản hồi về PC bằng một trong hai loại khung cố định kích 
   * `Byte 2`: **Status Byte**
     * `0x00`: **STATUS_TRIGGER_OK** (Bắt được cạnh trigger và ghi đủ 80% post-trigger).
     * `0x01`: **STATUS_FREERUN_OK** (Chế độ Free-run nạp đầy 100% dung lượng bộ đệm).
-    * `0x02`: **STATUS_TIMEOUT** (Hết thời gian $T_{\text{mcu\_timeout}}$ mà không có trigger, firmware tự dừng).
+    * `0x02`: **STATUS_TIMEOUT** (Hết thời gian $T_{\text{mcu-timeout}}$ mà không có trigger, firmware tự dừng).
   * `Byte 3 – 4`: **`trig_offset`** = `6554` (uint16_t Little-Endian: `0x9A, 0x19`).
     *(Vị trí index của điểm trigger trong mảng 32KB; với Free-run mang tính tham khảo).*
   * `Byte 5 – 6`: **`sample_count`** = `32768` (uint16_t Little-Endian: `0x00, 0x80`).
 * **Payload (32.768 Bytes):** 
   * Mảng dữ liệu mẫu được sắp xếp liên tục từ mẫu cũ nhất ($t_0$) đến mẫu mới nhất ($t_{32767}$).
-  * *Quy tắc khi Timeout:* **Vẫn gửi trọn vẹn 32.768 Bytes**. Lý do: Với công thức timeout $T_{\text{mcu\_timeout}} = \frac{16384}{f_s} + 2.0\text{ s}$, thời gian này luôn lớn hơn thời gian nạp đầy toàn bộ bộ đệm $\frac{32768}{f_s}$ đối với mọi tần số $f_s \ge 8.2\text{ kHz}$ ($8.2\text{ kHz} \le 10\text{ kHz}$ - mức thấp nhất). Vì vậy khi timeout xảy ra, **bộ đệm 32KB luôn đầy 100% dữ liệu hợp lệ**, giúp người dùng quan sát được sóng trước sự kiện để tìm nguyên nhân không trigger.
+  * *Quy tắc khi Timeout:* **Vẫn gửi trọn vẹn 32.768 Bytes**. Lý do: Với công thức timeout $T_{\text{mcu-timeout}} = \frac{16384}{f_s} + 2.0\text{ s}$, thời gian này luôn lớn hơn thời gian nạp đầy toàn bộ bộ đệm $\frac{32768}{f_s}$ đối với mọi tần số $f_s \ge 8.2\text{ kHz}$ ($8.2\text{ kHz} \le 10\text{ kHz}$ - mức thấp nhất). Vì vậy khi timeout xảy ra, **bộ đệm 32KB luôn đầy 100% dữ liệu hợp lệ**, giúp người dùng quan sát được sóng trước sự kiện để tìm nguyên nhân không trigger.
 * **Footer (1 Byte):** 
   * Byte kiểm tra XOR tính toán trên toàn bộ 32.768 bytes của phần Payload:
     $$\text{Footer} = \bigoplus_{i=0}^{32767} \text{Payload}[i]$$
@@ -195,16 +195,16 @@ sequenceDiagram
 ### 4.2. Khóa Lệnh khi đang Truyền Dữ liệu (State Locking)
 * **Quy tắc tuyệt đối:** Khi FSM ở trạng thái **`TRANSFERRING`** (đang đẩy 32.776B qua USB-CDC):
   * **Phía MCU:** Bỏ qua hoàn toàn mọi byte nhận được từ cổng USB. Không bao giờ phát sinh khung NAK hay PONG chen ngang vào giữa dòng dữ liệu 32KB.
-  * **Phía GUI:** Bị khóa giao diện, cấm gửi bất kỳ lệnh nào (kể cả Ping hay Start) cho đến khi hoàn tất việc nhận trọn vẹn 32.776 bytes hoặc sau khi quá hạn $T_{\text{gui\_timeout}}$.
+  * **Phía GUI:** Bị khóa giao diện, cấm gửi bất kỳ lệnh nào (kể cả Ping hay Start) cho đến khi hoàn tất việc nhận trọn vẹn 32.776 bytes hoặc sau khi quá hạn $T_{\text{gui-timeout}}$.
 * Lệnh `CMD_PING` và `CMD_ABORT` chỉ được xử lý khi FSM ở `IDLE`, `ARMED` hoặc `SAMPLING`.
 
 ### 4.3. Quy tắc Thời gian Chờ (Timeout Budget)
-* **Phía MCU ($T_{\text{mcu\_timeout}}$):**
-  $$T_{\text{mcu\_timeout}} = \frac{16384}{f_s} + T_{\text{wait}}$$
+* **Phía MCU ($T_{\text{mcu-timeout}}$):**
+  $$T_{\text{mcu-timeout}} = \frac{16384}{f_s} + T_{\text{wait}}$$
   * Trong phiên bản v1.0.0, **$T_{\text{wait}} = 2.0\text{ s}$ cố định**.
   * Định thời thực hiện bằng biến đếm mili-giây trong trình phục vụ ngắt `SysTick_Handler()`.
-* **Phía GUI Serial ($T_{\text{gui\_timeout}}$):**
-  $$T_{\text{gui\_timeout}} = T_{\text{mcu\_timeout}} + 1.5\text{ s}$$
+* **Phía GUI Serial ($T_{\text{gui-timeout}}$):**
+  $$T_{\text{gui-timeout}} = T_{\text{mcu-timeout}} + 1.5\text{ s}$$
   *(GUI luôn cộng thêm $1.5\text{ s}$ dự phòng độ trễ USB để không bao giờ ngắt kết nối trước MCU).*
 
 ### 4.4. Bảo vệ Chống Treo Cáp USB (`TxState` Watchdog)
