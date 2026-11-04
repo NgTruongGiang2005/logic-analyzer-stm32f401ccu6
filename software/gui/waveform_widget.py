@@ -21,10 +21,10 @@ NEON_CHANNEL_COLORS = [
     "#22c55e",  # D1: Emerald
     "#eab308",  # D2: Yellow
     "#f97316",  # D3: Orange
-    "#a855f7",  # D4: Purple
+    "#c084fc",  # D4: Purple (Brightened for high contrast)
     "#ec4899",  # D5: Pink
     "#38bdf8",  # D6: Sky Blue
-    "#f43f5e",  # D7: Coral
+    "#fb7185",  # D7: Coral (Brightened for high contrast)
 ]
 
 DEFAULT_NAMES = [
@@ -142,7 +142,14 @@ class WaveformWidget(QtWidgets.QWidget):
         self.plot_widget = pg.PlotWidget()
         self.plot_widget.setBackground("#18181b")
         self.plot_widget.showGrid(x=True, y=True, alpha=0.18)
-        self.plot_widget.setLabel("bottom", "Thời gian (s)", units="s")
+        self.plot_widget.setLabel("bottom", "Time", units="s")
+        axis_bottom = self.plot_widget.getAxis("bottom")
+        axis_bottom.setPen(pg.mkPen(color="#3f3f46", width=1))
+        axis_bottom.setTextPen(pg.mkPen(color="#a1a1aa"))
+
+        axis_left = self.plot_widget.getAxis("left")
+        axis_left.setPen(pg.mkPen(color="#3f3f46", width=1))
+        axis_left.setTextPen(pg.mkPen(color="#e4e4e7"))
         self.plot_widget.setMouseEnabled(x=True, y=False)
         self.plot_widget.setYRange(-0.4, 11.6, padding=0.01)
 

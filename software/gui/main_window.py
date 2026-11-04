@@ -149,11 +149,13 @@ QTabBar::tab:selected {
 }
 QTableWidget {
     background-color: #18181b;
+    alternate-background-color: #202023;
     color: #e4e4e7;
-    gridline-color: #27272a;
+    gridline-color: #3f3f46;
     border: 1px solid #3f3f46;
     border-radius: 4px;
     selection-background-color: #0284c7;
+    selection-color: #ffffff;
     font-family: 'Consolas', monospace;
     font-size: 11px;
 }
@@ -686,6 +688,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.table_packets = QtWidgets.QTableWidget(0, 4)
         self.table_packets.setHorizontalHeaderLabels(["#", "Time (ms)", "Decoded", "Hex Data"])
         self.table_packets.horizontalHeader().setStretchLastSection(True)
+        self.table_packets.setColumnWidth(0, 45)
+        self.table_packets.setColumnWidth(1, 95)
+        self.table_packets.setColumnWidth(2, 90)
         self.table_packets.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         self.table_packets.setAlternatingRowColors(True)
         self.table_packets.cellClicked.connect(self._on_packet_clicked)
@@ -932,20 +937,28 @@ class MainWindow(QtWidgets.QMainWindow):
             num_ones = int(np.count_nonzero(ch_arr == 1))
             transitions = int(np.count_nonzero(np.diff(ch_arr) != 0))
             if transitions == 0 and num_ones == 0:
-                self.txt_terminal.setPlainText(f"[WARNING: Channel D{ch} is at continuous LOW (0V). Connect jumper wire from PA9 to PA0 for loopback self-test!]")
+                self.txt_terminal.setHtml(f'<span style="color: #fbbf24;">[WARNING: Channel D{ch} is at continuous LOW (0V). Connect jumper wire from PA9 to PA0 for loopback self-test!]</span>')
             elif transitions == 0:
-                self.txt_terminal.setPlainText(f"[WARNING: Channel D{ch} is at continuous HIGH (3.3V IDLE). No signal transitions detected.]")
+                self.txt_terminal.setHtml(f'<span style="color: #fbbf24;">[WARNING: Channel D{ch} is at continuous HIGH (3.3V IDLE). No signal transitions detected.]</span>')
             else:
-                self.txt_terminal.setPlainText(f"[WARNING: Detected {transitions} transitions but could not decode valid frame. Check Baud Rate ({baud:,} bps).]")
+                self.txt_terminal.setHtml(f'<span style="color: #fbbf24;">[WARNING: Detected {transitions} transitions but could not decode valid frame. Check Baud Rate ({baud:,} bps).]</span>')
 
         # Điền bảng Packets
         self.table_packets.setRowCount(len(frames))
         for row, f in enumerate(frames):
             t_ms = f["start_time_s"] * 1000.0
-            self.table_packets.setItem(row, 0, QtWidgets.QTableWidgetItem(str(row + 1)))
-            self.table_packets.setItem(row, 1, QtWidgets.QTableWidgetItem(f"{t_ms:.3f} ms"))
-            self.table_packets.setItem(row, 2, QtWidgets.QTableWidgetItem(repr(f["char"])[1:-1]))
-            self.table_packets.setItem(row, 3, QtWidgets.QTableWidgetItem(f"0x{f['byte_val']:02X}"))
+            it0 = QtWidgets.QTableWidgetItem(str(row + 1))
+            it0.setTextAlignment(QtCore.Qt.AlignCenter)
+            it1 = QtWidgets.QTableWidgetItem(f"{t_ms:.3f} ms")
+            it1.setTextAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+            it2 = QtWidgets.QTableWidgetItem(repr(f["char"])[1:-1])
+            it2.setTextAlignment(QtCore.Qt.AlignCenter)
+            it3 = QtWidgets.QTableWidgetItem(f"0x{f['byte_val']:02X}")
+            it3.setTextAlignment(QtCore.Qt.AlignCenter)
+            self.table_packets.setItem(row, 0, it0)
+            self.table_packets.setItem(row, 1, it1)
+            self.table_packets.setItem(row, 2, it2)
+            self.table_packets.setItem(row, 3, it3)
 
     def _decode_i2c(self):
         scl_ch = self.cb_i_scl.currentData()
@@ -956,15 +969,26 @@ class MainWindow(QtWidgets.QMainWindow):
 
         text, frames = self.i2c_decoder.decode(scl, sda)
         self.current_i2c_frames = frames
-        self.txt_terminal.setPlainText(text if text else "[No valid I2C bus events detected]")
+        if text:
+            self.txt_terminal.setPlainText(text)
+        else:
+            self.txt_terminal.setHtml('<span style="color: #fbbf24;">[No valid I2C bus events detected]</span>')
 
         self.table_packets.setRowCount(len(frames))
         for row, f in enumerate(frames):
             t_ms = f["start_time_s"] * 1000.0
-            self.table_packets.setItem(row, 0, QtWidgets.QTableWidgetItem(str(row + 1)))
-            self.table_packets.setItem(row, 1, QtWidgets.QTableWidgetItem(f"{t_ms:.3f} ms"))
-            self.table_packets.setItem(row, 2, QtWidgets.QTableWidgetItem(f["type"]))
-            self.table_packets.setItem(row, 3, QtWidgets.QTableWidgetItem(f["desc"]))
+            it0 = QtWidgets.QTableWidgetItem(str(row + 1))
+            it0.setTextAlignment(QtCore.Qt.AlignCenter)
+            it1 = QtWidgets.QTableWidgetItem(f"{t_ms:.3f} ms")
+            it1.setTextAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+            it2 = QtWidgets.QTableWidgetItem(f["type"])
+            it2.setTextAlignment(QtCore.Qt.AlignCenter)
+            it3 = QtWidgets.QTableWidgetItem(f["desc"])
+            it3.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+            self.table_packets.setItem(row, 0, it0)
+            self.table_packets.setItem(row, 1, it1)
+            self.table_packets.setItem(row, 2, it2)
+            self.table_packets.setItem(row, 3, it3)
 
     def _decode_spi(self):
         sck_ch = self.cb_s_sck.currentData()
@@ -975,15 +999,26 @@ class MainWindow(QtWidgets.QMainWindow):
 
         text, frames = self.spi_decoder.decode(sck, mosi)
         self.current_spi_frames = frames
-        self.txt_terminal.setPlainText(text if text else "[No valid SPI bus data detected]")
+        if text:
+            self.txt_terminal.setPlainText(text)
+        else:
+            self.txt_terminal.setHtml('<span style="color: #fbbf24;">[No valid SPI bus data detected]</span>')
 
         self.table_packets.setRowCount(len(frames))
         for row, f in enumerate(frames):
             t_ms = f["start_time_s"] * 1000.0
-            self.table_packets.setItem(row, 0, QtWidgets.QTableWidgetItem(str(row + 1)))
-            self.table_packets.setItem(row, 1, QtWidgets.QTableWidgetItem(f"{t_ms:.3f} ms"))
-            self.table_packets.setItem(row, 2, QtWidgets.QTableWidgetItem(f["mosi_ascii"]))
-            self.table_packets.setItem(row, 3, QtWidgets.QTableWidgetItem(f["mosi_hex"]))
+            it0 = QtWidgets.QTableWidgetItem(str(row + 1))
+            it0.setTextAlignment(QtCore.Qt.AlignCenter)
+            it1 = QtWidgets.QTableWidgetItem(f"{t_ms:.3f} ms")
+            it1.setTextAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+            it2 = QtWidgets.QTableWidgetItem(f["mosi_ascii"])
+            it2.setTextAlignment(QtCore.Qt.AlignCenter)
+            it3 = QtWidgets.QTableWidgetItem(f["mosi_hex"])
+            it3.setTextAlignment(QtCore.Qt.AlignCenter)
+            self.table_packets.setItem(row, 0, it0)
+            self.table_packets.setItem(row, 1, it1)
+            self.table_packets.setItem(row, 2, it2)
+            self.table_packets.setItem(row, 3, it3)
 
     def _on_packet_clicked(self, row: int, col: int):
         """Click một dòng trong bảng gói tin -> Tự động Pan/Zoom tới vị trí đó trên đồ thị."""
