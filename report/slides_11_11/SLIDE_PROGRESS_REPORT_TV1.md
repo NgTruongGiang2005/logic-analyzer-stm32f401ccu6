@@ -61,7 +61,9 @@ Tổng thời gian: ~3 phút 30 giây (để dư 1 phút 30 giây trả lời c�
 #### Bố cục hiển thị Slide (Visual Layout):
 * **Tiêu đề:** KIẾN TRÚC MÁY TRẠNG THÁI (FSM) & ĐỒNG BỘ TRIGGER THỜI GIAN THỰC
 * **Sơ đồ khối FSM trung tâm:**
-  $$\text{IDLE} \longrightarrow \text{ARMED} \longrightarrow \text{PRE\_SAMPLING} \xrightarrow{\text{Cờ HTIF5}} \text{WAIT\_TRIGGER} \xrightarrow{\text{EXTI0..7}} \text{POST\_SAMPLING} \xrightarrow{\text{TIM2\_IRQ}} \text{TRANSFERRING}$$
+  ```text
+  [IDLE] ───> [ARMED] ───> [PRE_SAMPLING] ──(Cờ HTIF5)──> [WAIT_TRIGGER] ──(EXTI0..7)──> [POST_SAMPLING] ──(TIM2_IRQ)──> [TRANSFERRING] ───> [IDLE]
+  ```
 * **3 Điểm sáng kỹ thuật then chốt:**
   1. **Chống rỗng Pre-trigger bằng cờ DMA Half-Transfer:** Khóa ngắt EXTI ban đầu, chỉ mở ngắt khi cờ `HTIF5` bật (đảm bảo đã ghi đủ $\ge 20\%$ lịch sử tín hiệu trước khi bắt sự kiện).
   2. **Bộ đếm Post-trigger Cascade (TIM1 $\rightarrow$ TIM2):** TIM2 cấu hình Slave One-Pulse Mode nhận xung `ITR0` từ TIM1. Đếm chính xác tuyệt đối $26.214\text{ mẫu}$ ($80\%$ bộ đệm) bằng phần cứng rồi tự ngắt dừng TIM1 (giải phóng hoàn toàn CPU).
