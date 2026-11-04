@@ -71,7 +71,7 @@ class CursorHUDWidget(QtWidgets.QFrame):
         self.lbl_freq = QtWidgets.QLabel("f: -- Hz")
         self.lbl_freq.setStyleSheet("color: #69f0ae;")
 
-        layout.addWidget(QtWidgets.QLabel("<b>📐 Thước Đo:</b>"))
+        layout.addWidget(QtWidgets.QLabel("<b>CURSORS:</b>"))
         layout.addWidget(self.lbl_a)
         layout.addWidget(self.lbl_b)
         layout.addWidget(self.lbl_dt)

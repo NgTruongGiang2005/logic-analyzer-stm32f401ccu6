@@ -30,28 +30,28 @@ class LogicAnalyzerClient:
         {"idx": 8, "freq":    10_000, "label": "10 kHz (ARR=8399)"},
     ]
 
-    # Kiểu kích hoạt Trigger
+    # Kiểu kích hoạt Trigger (Chuẩn công nghiệp Saleae / DSView)
     TRIG_MODES = [
-        {"mode": 0, "name": "Free-run (Không đợi cạnh)"},
-        {"mode": 1, "name": "Cạnh lên (Rising Edge)"},
-        {"mode": 2, "name": "Cạnh xuống (Falling Edge)"},
+        {"mode": 0, "name": "Free-run (No Trigger)"},
+        {"mode": 1, "name": "Rising Edge (↑)"},
+        {"mode": 2, "name": "Falling Edge (↓)"},
     ]
 
     # Mã phản hồi Control / NAK từ MCU (protocol.md mục 2.2)
     RSP_CODES = {
         0x04: "RSP_PONG",
         0x05: "RSP_ABORTED",
-        0xE0: "ERR_CHECKSUM (Sai checksum lệnh 5B)",
+        0xE0: "ERR_CHECKSUM (Command checksum mismatch)",
         0xE1: "ERR_INVALID_RATE (RATE_IDX > 8)",
-        0xE2: "ERR_INVALID_TRIG (Kênh > 7 hoặc Mode > 2)",
-        0xE3: "ERR_BUSY (MCU đang trong chu trình Capture)",
+        0xE2: "ERR_INVALID_TRIG (Channel > 7 or Mode > 2)",
+        0xE3: "ERR_BUSY (MCU busy capturing)",
     }
 
     # Trạng thái trong Header Data Frame (protocol.md mục 2.1)
     STATUS_NAMES = {
-        0x00: "STATUS_TRIGGER_OK (Bắt cạnh trigger thành công)",
-        0x01: "STATUS_FREERUN_OK (Free-run hoàn tất)",
-        0x02: "STATUS_TIMEOUT (Hết thời gian chờ, MCU tự dừng)",
+        0x00: "Triggered (STATUS_TRIGGER_OK)",
+        0x01: "Complete (STATUS_FREERUN_OK)",
+        0x02: "Timeout (STATUS_TIMEOUT)",
     }
 
     def __init__(self):
@@ -76,7 +76,7 @@ class LogicAnalyzerClient:
         for p in ports:
             result.append((p.device, f"{p.device} - {p.description}"))
         # Luôn cung cấp cổng ảo Offline Mock ở cuối danh sách
-        result.append(("OFFLINE_MOCK", "⚡ Offline Mock (sample_data_1mhz.bin)"))
+        result.append(("OFFLINE_MOCK", "Offline Mock (sample_data_1mhz.bin)"))
         return result
 
     def connect(self, port: str, baudrate: int = 115200, timeout: float = 1.0) -> Tuple[bool, str]:

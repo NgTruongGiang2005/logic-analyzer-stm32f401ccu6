@@ -89,7 +89,7 @@ class WaveformHUD(QtWidgets.QFrame):
         layout.setContentsMargins(8, 3, 8, 3)
         layout.setSpacing(12)
 
-        self.lbl_title = QtWidgets.QLabel("<b>📐 CURSORS</b>")
+        self.lbl_title = QtWidgets.QLabel("<b>CURSORS</b>")
         self.lbl_title.setStyleSheet("color: #a1a1aa;")
 
         self.lbl_a = QtWidgets.QLabel("A: 0.000 ms")

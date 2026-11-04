@@ -49,13 +49,13 @@ def run_full_hardware_test(port="/dev/ttyACM0"):
     print("\n[PHẦN 1] KIỂM THỬ KẾT NỐI VÀ GIAO THỨC ĐIỀU KHIỂN (CONTROL FRAME)")
     ok, msg = client.connect(port)
     if not ok:
-        print(f"❌ THẤT BẠI: Không thể mở cổng {port}: {msg}")
+        print(f"[FAIL] Không thể mở cổng {port}: {msg}")
         return False
     print(f"  [1.1] Kết nối cổng serial {port}: PASS")
 
     ok_ping, ver = client.send_ping()
     if not ok_ping:
-        print(f"❌ THẤT BẠI: Lệnh PING không phản hồi: {ver}")
+        print(f"[FAIL] Lệnh PING không phản hồi: {ver}")
         return False
     print(f"  [1.2] Lệnh PING (0x03) -> Phản hồi PONG (0x04): PASS (Firmware {ver})")
 
