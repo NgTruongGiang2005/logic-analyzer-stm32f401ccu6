@@ -190,6 +190,88 @@ QSplitter::handle {
 QSplitter::handle:hover {
     background-color: #00f0ff;
 }
+QMenuBar {
+    background-color: #202023;
+    color: #e4e4e7;
+    border-bottom: 1px solid #3f3f46;
+    font-size: 12px;
+}
+QMenuBar::item {
+    background-color: transparent;
+    padding: 5px 10px;
+}
+QMenuBar::item:selected {
+    background-color: #0284c7;
+    color: #ffffff;
+    border-radius: 2px;
+}
+QMenuBar::item:pressed {
+    background-color: #0369a1;
+    color: #ffffff;
+}
+QMenu {
+    background-color: #202023;
+    color: #e4e4e7;
+    border: 1px solid #3f3f46;
+    padding: 4px 0px;
+    font-size: 12px;
+}
+QMenu::item {
+    background-color: transparent;
+    padding: 6px 28px 6px 16px;
+}
+QMenu::item:selected {
+    background-color: #0284c7;
+    color: #ffffff;
+}
+QMenu::item:disabled {
+    color: #71717a;
+}
+QMenu::separator {
+    height: 1px;
+    background-color: #3f3f46;
+    margin: 4px 8px;
+}
+QToolTip {
+    background-color: #27272a;
+    color: #f4f4f5;
+    border: 1px solid #3f3f46;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+}
+QScrollBar:vertical {
+    background-color: #18181b;
+    width: 8px;
+    margin: 0px;
+}
+QScrollBar::handle:vertical {
+    background-color: #3f3f46;
+    min-height: 20px;
+    border-radius: 4px;
+}
+QScrollBar::handle:vertical:hover {
+    background-color: #71717a;
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+QScrollBar:horizontal {
+    background-color: #18181b;
+    height: 8px;
+    margin: 0px;
+}
+QScrollBar::handle:horizontal {
+    background-color: #3f3f46;
+    min-width: 20px;
+    border-radius: 4px;
+}
+QScrollBar::handle:horizontal:hover {
+    background-color: #71717a;
+}
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+    width: 0px;
+}
 """
 
 
@@ -286,10 +368,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _init_menu_bar(self):
         menubar = self.menuBar()
-        menubar.setStyleSheet(
-            "QMenuBar { background-color: #202023; color: #e4e4e7; border-bottom: 1px solid #3f3f46; font-size: 12px; }"
-            "QMenuBar::item:selected { background-color: #0284c7; }"
-        )
 
         # Menu File
         menu_file = menubar.addMenu("&File")
