@@ -60,9 +60,25 @@ Tổng thời gian: ~3 phút 30 giây (để dư 1 phút 30 giây trả lời c�
 
 #### Bố cục hiển thị Slide (Visual Layout):
 * **Tiêu đề:** KIẾN TRÚC MÁY TRẠNG THÁI (FSM) & ĐỒNG BỘ TRIGGER THỜI GIAN THỰC
-* **Sơ đồ khối FSM trung tâm:**
-  ```text
-  [IDLE] ───> [ARMED] ───> [PRE_SAMPLING] ──(Cờ HTIF5)──> [WAIT_TRIGGER] ──(EXTI0..7)──> [POST_SAMPLING] ──(TIM2_IRQ)──> [TRANSFERRING] ───> [IDLE]
+* **Sơ đồ khối FSM trung tâm (Mermaid Diagram):**
+  ```mermaid
+  flowchart LR
+      IDLE["IDLE (Chờ lệnh PC)"]
+      ARMED["ARMED (Bật TIM1 & DMA2)"]
+      PRE["PRE_SAMPLING (Khóa EXTI)"]
+      WAIT["WAIT_TRIGGER (Mở EXTI0..7)"]
+      POST["POST_SAMPLING (TIM2 One-Pulse)"]
+      TX["TRANSFERRING (Gửi USB 32KB)"]
+
+      IDLE -->|"CMD_START (0x01)"| ARMED
+      ARMED -->|"Kích hoạt DMA"| PRE
+      PRE -->|"Cờ HTIF5 (>= 20% Pre-trigger)"| WAIT
+      PRE -->|"Chế độ Free-Run"| POST
+      WAIT -->|"Ngắt EXTI (Cạnh tín hiệu)"| POST
+      WAIT -->|"Timeout SysTick (2.0s)"| TX
+      POST -->|"Ngắt TIM2 (Đủ 26.214 mẫu)"| TX
+      TX -->|"Hoàn tất truyền USB"| IDLE
+      WAIT -.->|"CMD_ABORT (0x02)"| IDLE
   ```
 * **3 Điểm sáng kỹ thuật then chốt:**
   1. **Chống rỗng Pre-trigger bằng cờ DMA Half-Transfer:** Khóa ngắt EXTI ban đầu, chỉ mở ngắt khi cờ `HTIF5` bật (đảm bảo đã ghi đủ $\ge 20\%$ lịch sử tín hiệu trước khi bắt sự kiện).
