@@ -55,6 +55,7 @@ Embedded_System/
 │   ├── STM32F401_STLink.launch     # Cấu hình nạp debug ST-Link dùng chung
 │   ├── Core/Startup/               # startup_stm32f401ccux.s
 │   ├── Core/Inc/, Core/Src/        # Code hệ thống + la_core, la_protocol, la_testgen
+│   ├── tests/                      # Bộ kịch bản Python kiểm thử phần cứng HIL (Steps 1-4)
 │   ├── USB_DEVICE/                 # Middleware USB-CDC
 │   ├── Drivers/                    # CMSIS & ST HAL/LL Drivers (Commit trực tiếp để build ngay)
 │   └── Middlewares/                # ST USB Device Library (Commit trực tiếp)
