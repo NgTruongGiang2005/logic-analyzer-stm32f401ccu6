@@ -1,0 +1,20 @@
+#!/usr/bin/env python3
+"""
+software/app.py
+Alias khởi chạy nhanh ứng dụng Logic Analyzer Desktop (tương thích lệnh: python app.py).
+"""
+
+import sys
+import os
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_dir)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
+
+from software.main import main
+
+if __name__ == "__main__":
+    main()
