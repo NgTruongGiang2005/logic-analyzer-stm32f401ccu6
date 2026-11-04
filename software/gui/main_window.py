@@ -16,6 +16,9 @@ import time
 import numpy as np
 from typing import Optional, Dict, Any, List
 
+# Khử thông báo cảnh báo Wayland requestActivate() trên Linux
+os.environ.setdefault("QT_LOGGING_RULES", "qt.qpa.wayland=false")
+
 from PyQt5 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg
 

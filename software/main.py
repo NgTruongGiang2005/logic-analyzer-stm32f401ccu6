@@ -13,6 +13,9 @@ import sys
 import os
 import signal
 
+# Khử thông báo cảnh báo Wayland requestActivate() trên Linux
+os.environ.setdefault("QT_LOGGING_RULES", "qt.qpa.wayland=false")
+
 # Đảm bảo đường dẫn import tương đối từ thư mục gốc dự án
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_dir)
