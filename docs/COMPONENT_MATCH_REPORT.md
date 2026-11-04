@@ -28,8 +28,8 @@ Toàn bộ ảnh crop tham chiếu và render được lưu trữ tại `docs/ui
 | **4** | **Channel Label Column** (Cột nhãn kênh) | `(0, 77, 270, 1137)` | 270 × 1060 px | **ĐÃ HOÀN THÀNH** | **85.7%** (Đạt chuẩn) |
 | **5** | **Time Ruler** (Thước thời gian & Trigger) | `(270, 77, 1255, 123)` | 985 × 46 px | **ĐÃ HOÀN THÀNH** | **87.4%** (Đạt chuẩn) |
 | **6** | **Analyzers Panel** (Panel Analyzers & Card Trigger) | `(1255, 77, 1690, 350)` | 435 × 273 px | **ĐÃ HOÀN THÀNH** | **88.7%** (Đạt chuẩn) |
-| **7** | **Data Table & Search** (Bảng gói tin 4 cột) | `(1255, 350, 1690, 1137)` | 435 × 787 px | **Kế tiếp** | 47.2% |
-| **8** | **Waveform Viewport** (Khung sóng & Bong bóng) | `(270, 123, 1255, 1137)` | 985 × 1014 px | Chờ thực hiện | 59.5% |
+| **7** | **Data Table & Search** (Bảng gói tin 4 cột) | `(1255, 350, 1690, 1137)` | 435 × 787 px | **ĐÃ HOÀN THÀNH** | **85.1%** (Đạt chuẩn) |
+| **8** | **Waveform Viewport** (Khung sóng & Bong bóng) | `(270, 123, 1255, 1137)` | 985 × 1014 px | **Kế tiếp** | 59.5% |
 
 ---
 
@@ -164,3 +164,40 @@ TỔNG ĐIỂM TƯƠNG ĐỒNG: 88.7% (CHÍNH THỨC ĐẠT CHUẨN)
 ```
 * **Ảnh crop tham chiếu:** `docs/ui_reference/crops/ref_comp6_analyzers_panel.png`
 * **Ảnh crop render:** `docs/ui_reference/crops/gen_comp6_analyzers_panel.png`
+
+---
+
+## 9. Nghiệm Thu Component 7: Data Table & Search
+
+### 9.1. Phân tích Pixel thực tế từ ảnh crop `ref_comp7_data_table.png`
+1. **Kích thước hình học:** Rộng đúng $435\text{ px}$, cao $787\text{ px}$, tọa độ `(1255, 350, 1690, 1137)`.
+2. **Thanh Header tiêu đề:**
+   - Tiêu đề `Data` tại $X = 23 \dots 75\text{ px}$, $Y = 7 \dots 23\text{ px}$, Font Segoe UI 21px Bold màu `#ffffff`.
+   - Vòng tròn trợ giúp `?` đường kính $18\text{ px}$, viền `#57575e`, chữ xám `#8b8b93`.
+   - Chấm tròn xanh lá `✓` `#2e9949`.
+   - Cụm nút công cụ bên phải: Icon bảng `▦` màu `#ffffff` và Icon Terminal `>_` có viền `#57575e`.
+3. **Ô tìm kiếm Type to search:**
+   - Chiều cao $47\text{ px}$ ($Y = 53 \dots 100\text{ px}$), nền `#2c2c2e`, viền `$1\text{ px}$` `#3a3a3e`, bo góc $4\text{ px}$.
+   - Chữ placeholder `Type to search` font 14px Segoe UI, nút menu ba chấm `⋮` bên phải.
+4. **Bảng dữ liệu 4 cột chuyên dụng:**
+   - **Cột 0 (Marker):** Rộng $26\text{ px}$ (`setMinimumSectionSize(10)`), vẽ ô vuông màu $8 \times 8\text{ px}$ qua `QStyledItemDelegate`:
+     - Gói UART: Ô vuông vàng `#cdb469`.
+     - Gói I2C: Ô vuông xanh dương `#4a90e2`.
+   - **Cột 1 (Type):** Rộng $113\text{ px}$, chứa các giá trị `data`, `start`, `address`, `stop`.
+   - **Cột 2 (Start):** Rộng $165\text{ px}$, mốc thời gian SI độ phân giải cao (`86.8 µs`, `1.277496 ms`...).
+   - **Cột 3 (Duration):** Rộng $86\text{ px}$ (co giãn vừa khít lề phải), độ rộng xung (`82.464 µs`, `8 ns`...).
+   - **Chiều cao hàng & Màu nền:** Chiều cao hàng đúng $42\text{ px}$, màu nền xen kẽ (Alternating Rows) `#141415` và `#1b1b1c`. Viền dọc phân cách giữa các cột `$1\text{ px}$` `#57575e`.
+
+### 9.2. Kết Quả Định Lượng Bằng Công Cụ `compare_components.py`
+```text
+Component 7 (Data Table & Search):
+- Kích thước: (435, 787) px
+- Color Histogram Similarity: 99.91%
+- Block SSIM Similarity:      62.82%
+- Visual Feature Checklist:   100.0%
+--------------------------------------------------
+TỔNG ĐIỂM TƯƠNG ĐỒNG: 85.1% (CHÍNH THỨC ĐẠT CHUẨN)
+--------------------------------------------------
+```
+* **Ảnh crop tham chiếu:** `docs/ui_reference/crops/ref_comp7_data_table.png`
+* **Ảnh crop render:** `docs/ui_reference/crops/gen_comp7_data_table.png`

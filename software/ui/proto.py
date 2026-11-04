@@ -202,6 +202,174 @@ class AnalyzersPanelWidget(QtWidgets.QWidget):
         p.end()
 
 
+class DataTablePanelWidget(QtWidgets.QWidget):
+    """Component 7: Data Table & Search (435x787 px) chuẩn Saleae Logic 2."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedHeight(787)
+        self.setStyleSheet(f"""
+            QWidget {{
+                background-color: {T.BG_MAIN};
+                color: #ffffff;
+                font-family: 'Segoe UI';
+            }}
+        """)
+        v = QtWidgets.QVBoxLayout(self)
+        v.setContentsMargins(23, 0, 22, 0)
+        v.setSpacing(0)
+
+        # 1. Header (Y=5..25)
+        h = QtWidgets.QHBoxLayout()
+        h.setContentsMargins(0, 5, 0, 0)
+        h.setSpacing(10)
+
+        lbl_title = QtWidgets.QLabel("Data")
+        lbl_title.setStyleSheet("font-size: 21px; font-weight: bold; color: #ffffff; border: none;")
+        h.addWidget(lbl_title)
+
+        lbl_help = QtWidgets.QLabel("?")
+        lbl_help.setAlignment(QtCore.Qt.AlignCenter)
+        lbl_help.setFixedSize(18, 18)
+        lbl_help.setStyleSheet("border: 1px solid #57575e; border-radius: 9px; color: #8b8b93; font-size: 11px; font-weight: bold;")
+        h.addWidget(lbl_help)
+
+        lbl_chk = QtWidgets.QLabel("●")
+        lbl_chk.setStyleSheet(f"color: {T.ACCENT_START}; font-size: 16px; border: none;")
+        h.addWidget(lbl_chk)
+
+        h.addStretch(1)
+
+        btn_grid = QtWidgets.QLabel("▦")
+        btn_grid.setStyleSheet("color: #ffffff; font-size: 20px; border: none;")
+        h.addWidget(btn_grid)
+
+        btn_term = QtWidgets.QLabel(">_")
+        btn_term.setStyleSheet(f"color: {T.TEXT_DIM}; font-size: 13px; font-weight: bold; border: 1px solid {T.TEXT_DIM}; border-radius: 4px; padding: 2px 5px;")
+        h.addWidget(btn_term)
+
+        v.addLayout(h)
+        v.addSpacing(26)
+
+        # 2. Search box (Y=53..100, height=47)
+        s_box = QtWidgets.QFrame()
+        s_box.setFixedHeight(47)
+        s_box.setStyleSheet(f"QFrame {{ background-color: {T.BG_CARD}; border-radius: 4px; border: 1px solid #3a3a3e; }}")
+        sl = QtWidgets.QHBoxLayout(s_box)
+        sl.setContentsMargins(14, 0, 12, 0)
+        search_edit = QtWidgets.QLineEdit()
+        search_edit.setPlaceholderText("Type to search")
+        search_edit.setStyleSheet("QLineEdit { background: transparent; border: none; color: #ffffff; font-size: 14px; }")
+        sl.addWidget(search_edit)
+        dots = QtWidgets.QLabel("⋮")
+        dots.setStyleSheet(f"color: {T.TEXT_DIM}; font-size: 18px; border: none; background: transparent;")
+        sl.addWidget(dots)
+        v.addWidget(s_box)
+
+        v.addSpacing(16)
+
+        # 3. Data Table (starts at Y=116)
+        tb = QtWidgets.QTableWidget(15, 4)
+        tb.setHorizontalHeaderLabels(["", "Type", "Start", "Duration"])
+        tb.verticalHeader().setVisible(False)
+        tb.setShowGrid(False)
+        tb.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
+        tb.setAlternatingRowColors(True)
+        tb.setStyleSheet(f"""
+            QTableWidget {{
+                background-color: {T.BG_DEEP};
+                alternate-background-color: {T.BG_MAIN};
+                border: none;
+                font-size: 14px;
+                font-family: 'Segoe UI';
+            }}
+            QHeaderView::section {{
+                background-color: {T.BG_MAIN};
+                color: #ffffff;
+                font-weight: bold;
+                font-size: 14px;
+                border: none;
+                border-bottom: 1px solid #57575e;
+                padding-left: 10px;
+                text-align: left;
+            }}
+            QTableWidget::item {{
+                border: none;
+                border-right: 1px solid #57575e;
+                padding-left: 10px;
+            }}
+        """)
+
+        class SquareDelegate(QtWidgets.QStyledItemDelegate):
+            def paint(self, painter, option, index):
+                super().paint(painter, option, index)
+                col_hex = index.data(QtCore.Qt.UserRole)
+                if col_hex:
+                    painter.save()
+                    painter.setRenderHint(QtGui.QPainter.Antialiasing, False)
+                    rect = QtCore.QRect(option.rect.x() + 9, option.rect.y() + 17, 8, 8)
+                    painter.fillRect(rect, QtGui.QColor(col_hex))
+                    painter.restore()
+
+        tb.setItemDelegateForColumn(0, SquareDelegate(tb))
+
+        row_data = [
+            ("#cdb469", "data", "86.8 µs", "82.464 µs"),
+            ("#cdb469", "data", "260.416 µs", "82.464 µs"),
+            ("#cdb469", "data", "434.024 µs", "82.464 µs"),
+            ("#cdb469", "data", "607.632 µs", "82.464 µs"),
+            ("#cdb469", "data", "781.248 µs", "82.464 µs"),
+            ("#cdb469", "data", "954.856 µs", "82.464 µs"),
+            ("#cdb469", "data", "1.128472 ms", "82.464 µs"),
+            ("#4a90e2", "start", "1.277496 ms", "8 ns"),
+            ("#4a90e2", "address", "1.287496 ms", "42.504 µs"),
+            ("#4a90e2", "data", "1.30208 ms", "82.464 µs"),
+            ("#4a90e2", "data", "1.342496 ms", "42.504 µs"),
+            ("#4a90e2", "data", "1.397496 ms", "42.504 µs"),
+            ("#4a90e2", "stop", "1.457496 ms", "8 ns"),
+            ("#cdb469", "data", "1.475688 ms", "82.464 µs"),
+            ("#cdb469", "data", "1.649296 ms", "82.464 µs"),
+        ]
+
+        for r, (col, typ, start, dur) in enumerate(row_data):
+            it_mk = QtWidgets.QTableWidgetItem("")
+            it_mk.setData(QtCore.Qt.UserRole, col)
+            tb.setItem(r, 0, it_mk)
+
+            it_typ = QtWidgets.QTableWidgetItem(typ)
+            it_typ.setForeground(QtGui.QBrush(QtGui.QColor("#ffffff")))
+            it_typ.setTextAlignment(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft)
+            tb.setItem(r, 1, it_typ)
+
+            it_start = QtWidgets.QTableWidgetItem(start)
+            it_start.setForeground(QtGui.QBrush(QtGui.QColor("#ffffff")))
+            it_start.setTextAlignment(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft)
+            tb.setItem(r, 2, it_start)
+
+            it_dur = QtWidgets.QTableWidgetItem(dur)
+            it_dur.setForeground(QtGui.QBrush(QtGui.QColor("#ffffff")))
+            it_dur.setTextAlignment(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft)
+            tb.setItem(r, 3, it_dur)
+
+            tb.setRowHeight(r, 42)
+
+        tb.horizontalHeader().setFixedHeight(53)
+        tb.horizontalHeader().setMinimumSectionSize(10)
+        tb.setColumnWidth(0, 26)
+        tb.setColumnWidth(1, 113)
+        tb.setColumnWidth(2, 165)
+        tb.horizontalHeader().setStretchLastSection(True)
+        tb.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        tb.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        v.addWidget(tb, 1)
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        p = QtGui.QPainter(self)
+        p.setPen(QtGui.QPen(QtGui.QColor(87, 87, 94), 1))
+        p.drawLine(0, 0, 0, self.height())
+        p.end()
+
+
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, P):
         super().__init__()
@@ -424,46 +592,10 @@ class MainWindow(QtWidgets.QMainWindow):
         ana = AnalyzersPanelWidget()
         v.addWidget(ana)
 
-        # Phần Data Table bên dưới (Component 7)
-        data_container = QtWidgets.QWidget()
-        dv = QtWidgets.QVBoxLayout(data_container)
-        dv.setContentsMargins(px(12), px(8), px(12), px(8))
-        dv.setSpacing(px(8))
+        # Component 7: Data Table Panel (435x787 px)
+        data_panel = DataTablePanelWidget()
+        v.addWidget(data_panel, 1)
 
-        d = QtWidgets.QLabel(f"Data &nbsp;<span style='color:{T.ACCENT_START}'>&#10004;</span>")
-        d.setStyleSheet(f"font-size:{px(19)}px;font-weight:bold;")
-        dv.addWidget(d)
-        s = QtWidgets.QLineEdit(); s.setPlaceholderText("Type to search")
-        dv.addWidget(s)
-        mk = bool(P.get("table_marker"))
-        nc = 4 if mk else 3
-        tb = QtWidgets.QTableWidget(14, nc)
-        tb.setHorizontalHeaderLabels((["", "Type", "Start", "Duration"] if mk else ["Type", "Start", "Duration"]))
-        tb.verticalHeader().setVisible(False)
-        tb.setAlternatingRowColors(False)
-        tb.setShowGrid(False)
-        tb.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
-        for r in range(14):
-            vals = ["data", f"{86.8 + r * 86.8:.1f} µs", "82.46 µs"]
-            if mk:
-                vals = ["■"] + vals
-            for c, val in enumerate(vals):
-                it = QtWidgets.QTableWidgetItem(val)
-                if mk and c == 0:
-                    it.setForeground(QtGui.QBrush(QtGui.QColor(T.DECODE_UART_BG)))
-                tb.setItem(r, c, it)
-            tb.setRowHeight(r, px(30))
-        tb.horizontalHeader().setStretchLastSection(True)
-        tb.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        if mk:
-            for c, wd in enumerate((28, 62, 104)):
-                tb.setColumnWidth(c, px(wd))
-        else:
-            for c, wd in enumerate((70, 120)):
-                tb.setColumnWidth(c, px(wd))
-        dv.addWidget(tb, 1)
-
-        v.addWidget(data_container, 1)
         return w
 
     # ---- dải icon phải -------------------------------------------------------
