@@ -1,7 +1,7 @@
 /**
   ******************************************************************************
   * @file    la_core.c
-  * @brief   Triển khai bộ điều khiển lõi Logic Analyzer.
+  * @brief   Triển khai bộ điều khiển lõi Logic Analyzer (FSM, Timer Cascade, DMA2, EXTI).
   * @author  Nguyen Van Hoi (Firmware Engineer)
   ******************************************************************************
   */
@@ -28,15 +28,16 @@ extern DMA_HandleTypeDef hdma_tim1_up;
 /* Bộ đệm vòng 32 KB nằm trong SRAM STM32F401CCU6 (64 KB tổng, căn lề 4 byte) */
 uint8_t la_capture_buffer[LA_BUFFER_SIZE] __attribute__((aligned(4)));
 
-/* Biến trạng thái máy trạng thái */
+/* Biến trạng thái máy trạng thái FSM */
 static volatile la_state_t g_la_state = LA_STATE_IDLE;
 static volatile uint8_t  g_current_rate_idx = 0;
 static volatile uint8_t  g_current_trig_cfg = 0;
 static volatile uint16_t g_captured_write_pos = 0;
+static volatile uint8_t  g_captured_status = LA_STATUS_FREERUN_OK;
 static volatile uint32_t g_timeout_counter_ms = 0;
 static volatile uint32_t g_timeout_limit_ms = 2000;
 
-/* Bảng nạp ARR cho TIM1 (PSC = 0, SYSCLK = 84 MHz) */
+/* Bảng nạp ARR cho TIM1 (PSC = 0, Clock = 84 MHz) */
 const uint16_t TIM1_ARR_TABLE[9] = {
     13,    /* Mức 0: 6 MHz */
     27,    /* Mức 1: 3 MHz */
@@ -49,21 +50,63 @@ const uint16_t TIM1_ARR_TABLE[9] = {
     8399   /* Mức 8: 10 kHz */
 };
 
+/* Bảng timeout động T = (16384 / fs) + 2000 ms */
+static const uint32_t TIMEOUT_TABLE[9] = {
+    2003,  /* Mức 0: 6 MHz */
+    2006,  /* Mức 1: 3 MHz */
+    2009,  /* Mức 2: 2 MHz */
+    2017,  /* Mức 3: 1 MHz */
+    2033,  /* Mức 4: 500 kHz */
+    2082,  /* Mức 5: 200 kHz */
+    2164,  /* Mức 6: 100 kHz */
+    2328,  /* Mức 7: 50 kHz */
+    3639   /* Mức 8: 10 kHz */
+};
+
 void la_core_init(void)
 {
     g_la_state = LA_STATE_IDLE;
     g_captured_write_pos = 0;
+    g_captured_status = LA_STATUS_FREERUN_OK;
 
 #if defined(TIM1)
-    /* Cấu hình chu kỳ đếm Post-trigger cho TIM2 (đếm đúng 26.214 mẫu) */
+    /* 1. Cấu hình chu kỳ đếm Post-trigger cho TIM2 (đếm đúng 26.214 mẫu) */
     TIM2->ARR = LA_POST_TRIGGER_SAMPLES - 1; /* 26213 */
 
     /* Bật cờ ngắt Update cho TIM2 */
     __HAL_TIM_ENABLE_IT(&htim2, TIM_IT_UPDATE);
 
-    /* Xóa sạch cờ ngắt DMA2 Stream 5 */
+    /* 2. Xóa sạch cờ ngắt DMA2 Stream 5 */
     DMA2->HIFCR = DMA_HIFCR_CTCIF5 | DMA_HIFCR_CHTIF5 | DMA_HIFCR_CTEIF5 |
                   DMA_HIFCR_CDMEIF5 | DMA_HIFCR_CFEIF5;
+
+    /* 3. Cấu hình SYSCFG định tuyến EXTI0..EXTI7 về GPIOA (0000 = PA[x]) */
+    __HAL_RCC_SYSCFG_CLK_ENABLE();
+    SYSCFG->EXTICR[0] &= ~0xFFFFU; /* PA0, PA1, PA2, PA3 */
+    SYSCFG->EXTICR[1] &= ~0xFFFFU; /* PA4, PA5, PA6, PA7 */
+
+    /* 4. Khóa toàn bộ ngắt EXTI và xóa cờ ngắt ban đầu */
+    EXTI->IMR &= ~0x00FFU;
+    EXTI->PR = 0x00FFU;
+
+    /* 5. Cài đặt NVIC Priority 0 (Cao nhất - SSoT AGENTS.md) cho EXTI 0..7 */
+    HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(EXTI0_IRQn);
+
+    HAL_NVIC_SetPriority(EXTI1_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(EXTI1_IRQn);
+
+    HAL_NVIC_SetPriority(EXTI2_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(EXTI2_IRQn);
+
+    HAL_NVIC_SetPriority(EXTI3_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(EXTI3_IRQn);
+
+    HAL_NVIC_SetPriority(EXTI4_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(EXTI4_IRQn);
+
+    HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 #endif
 }
 
@@ -85,9 +128,9 @@ bool la_core_start_capture(uint8_t rate_idx, uint8_t trig_cfg)
     g_current_rate_idx = rate_idx;
     g_current_trig_cfg = trig_cfg;
 
-    /* Tính toán thời gian timeout: (16384 / fs) + 2000ms */
+    /* Thiết lập thời gian timeout động */
     g_timeout_counter_ms = 0;
-    g_timeout_limit_ms = 2000;
+    g_timeout_limit_ms = TIMEOUT_TABLE[rate_idx];
 
     g_la_state = LA_STATE_ARMED;
 
@@ -105,22 +148,26 @@ bool la_core_start_capture(uint8_t rate_idx, uint8_t trig_cfg)
     TIM2->ARR = LA_POST_TRIGGER_SAMPLES - 1; /* 26213 */
     TIM2->CNT = 0;
 
-    /* 4. Xóa cờ ngắt cũ trên DMA2 Stream 5 và chuẩn bị sẵn trạng thái DMA */
+    /* 4. Khóa toàn bộ ngắt EXTI trong giai đoạn Pre-trigger (chống rỗng pre-trigger) */
+    EXTI->IMR &= ~0x00FFU;
+    EXTI->PR = 0x00FFU;
+
+    /* 5. Xóa sạch cờ ngắt DMA2 Stream 5 và đưa handle về READY */
     DMA2->HIFCR = DMA_HIFCR_CTCIF5 | DMA_HIFCR_CHTIF5 | DMA_HIFCR_CTEIF5 |
                   DMA_HIFCR_CDMEIF5 | DMA_HIFCR_CFEIF5;
     hdma_tim1_up.State = HAL_DMA_STATE_READY;
     __HAL_UNLOCK(&hdma_tim1_up);
 
-    /* 5. Khởi động DMA2 Stream 5 đọc trực tiếp từ GPIOA->IDR vào buffer 32KB vòng */
+    /* 6. Khởi động DMA2 Stream 5 đọc trực tiếp từ GPIOA->IDR vào buffer 32KB vòng */
     if (HAL_DMA_Start_IT(&hdma_tim1_up, (uint32_t)&(GPIOA->IDR), (uint32_t)la_capture_buffer, LA_BUFFER_SIZE) != HAL_OK) {
         g_la_state = LA_STATE_IDLE;
         return false;
     }
 
-    /* 6. Cho phép TIM1 phát yêu cầu DMA Update */
+    /* 7. Cho phép TIM1 phát yêu cầu DMA Update (bit UDE) */
     __HAL_TIM_ENABLE_DMA(&htim1, TIM_DMA_UPDATE);
 
-    /* 7. Chuyển FSM sang PRE_SAMPLING và kích hoạt TIM1 lấy mẫu */
+    /* 8. Chuyển FSM sang PRE_SAMPLING và kích hoạt TIM1 lấy mẫu */
     g_la_state = LA_STATE_PRE_SAMPLING;
     __HAL_TIM_ENABLE(&htim1);
 #else
@@ -137,6 +184,10 @@ void la_core_abort(void)
     TIM1->CR1 &= ~TIM_CR1_CEN;
     TIM2->CR1 &= ~TIM_CR1_CEN;
     DMA2_Stream5->CR &= ~DMA_SxCR_EN;
+
+    /* Khóa ngắt EXTI */
+    EXTI->IMR &= ~0x00FFU;
+    EXTI->PR = 0x00FFU;
 
     DMA2->HIFCR = DMA_HIFCR_CTCIF5 | DMA_HIFCR_CHTIF5 | DMA_HIFCR_CTEIF5 |
                   DMA_HIFCR_CDMEIF5 | DMA_HIFCR_CFEIF5;
@@ -160,7 +211,25 @@ void la_core_on_dma_ht_isr(void)
             TIM2->CR1 |= TIM_CR1_CEN;
 #endif
         } else {
-            /* Kích hoạt ngắt EXTI trên chân chỉ định (Bước 3) */
+            /* Chế độ Edge Trigger: Cạnh lên (0x01) hoặc Cạnh xuống (0x02) */
+            uint8_t ch = (g_current_trig_cfg >> 4) & 0x07; /* Kênh 0..7 */
+
+            if (mode == 0x01) {
+                /* Cạnh lên (Rising Edge) */
+                EXTI->RTSR |= (1U << ch);
+                EXTI->FTSR &= ~(1U << ch);
+            } else if (mode == 0x02) {
+                /* Cạnh xuống (Falling Edge) */
+                EXTI->FTSR |= (1U << ch);
+                EXTI->RTSR &= ~(1U << ch);
+            }
+
+            /* Xóa cờ ngắt cũ và mở ngắt EXTI trên kênh chỉ định */
+            EXTI->PR = (1U << ch);
+            EXTI->IMR |= (1U << ch);
+
+            /* Bắt đầu đếm timeout SysTick */
+            g_timeout_counter_ms = 0;
             g_la_state = LA_STATE_WAIT_TRIGGER;
         }
     }
@@ -169,11 +238,16 @@ void la_core_on_dma_ht_isr(void)
 void la_core_on_exti_trigger_isr(void)
 {
     if (g_la_state == LA_STATE_WAIT_TRIGGER) {
-        /* Bật TIM2 đếm 26.214 xung Post-trigger */
+        /* 1. Khóa ngay lập tức ngắt EXTI để chống kích hoạt lại nhiều lần */
+        EXTI->IMR &= ~0x00FFU;
+
+        /* 2. Kích hoạt TIM2 One-Pulse đếm 26.214 mẫu Post-trigger */
 #if defined(TIM2)
         TIM2->CNT = 0;
         TIM2->CR1 |= TIM_CR1_CEN;
 #endif
+        /* Đánh dấu bắt được trigger thành công */
+        g_captured_status = LA_STATUS_TRIGGER_OK; /* 0x00 */
         g_la_state = LA_STATE_POST_SAMPLING;
     }
 }
@@ -198,17 +272,43 @@ void la_core_on_tim2_period_elapsed_isr(void)
 #else
         g_captured_write_pos = 0;
 #endif
+        uint8_t mode = g_current_trig_cfg & 0x0F;
+        g_captured_status = (mode == 0x00) ? LA_STATUS_FREERUN_OK : LA_STATUS_TRIGGER_OK;
         g_la_state = LA_STATE_TRANSFERRING;
+    }
+}
+
+void la_core_on_systick_tick(void)
+{
+    if (g_la_state == LA_STATE_WAIT_TRIGGER) {
+        g_timeout_counter_ms++;
+        if (g_timeout_counter_ms >= g_timeout_limit_ms) {
+            /* Hết thời gian chờ trigger -> Tự động dừng theo quy tắc Timeout */
+            EXTI->IMR &= ~0x00FFU;
+
+#if defined(TIM1)
+            TIM1->CR1 &= ~TIM_CR1_CEN;
+            DMA2_Stream5->CR &= ~DMA_SxCR_EN;
+
+            uint16_t ndtr = (uint16_t)(DMA2_Stream5->NDTR);
+            g_captured_write_pos = (LA_BUFFER_SIZE - ndtr) % LA_BUFFER_SIZE;
+
+            hdma_tim1_up.State = HAL_DMA_STATE_READY;
+            __HAL_UNLOCK(&hdma_tim1_up);
+#else
+            g_captured_write_pos = 0;
+#endif
+            g_captured_status = LA_STATUS_TIMEOUT; /* 0x02 */
+            g_la_state = LA_STATE_TRANSFERRING;
+        }
     }
 }
 
 void la_core_process(void)
 {
     if (g_la_state == LA_STATE_TRANSFERRING) {
-        uint8_t status = ((g_current_trig_cfg & 0x0F) == 0x00) ? LA_STATUS_FREERUN_OK : LA_STATUS_TRIGGER_OK;
-
         /* Thực hiện đóng gói 32.776 Bytes xoay vòng từ g_captured_write_pos và truyền qua USB-CDC phân đoạn 512B */
-        la_protocol_send_data_frame(status, LA_TRIG_OFFSET_DEFAULT, la_capture_buffer, g_captured_write_pos);
+        la_protocol_send_data_frame(g_captured_status, LA_TRIG_OFFSET_DEFAULT, la_capture_buffer, g_captured_write_pos);
 
         g_la_state = LA_STATE_IDLE;
     }

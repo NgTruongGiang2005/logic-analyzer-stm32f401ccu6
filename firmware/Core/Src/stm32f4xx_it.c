@@ -190,7 +190,7 @@ void SysTick_Handler(void)
   /* USER CODE END SysTick_IRQn 0 */
   HAL_IncTick();
   /* USER CODE BEGIN SysTick_IRQn 1 */
-
+  la_core_on_systick_tick();
   /* USER CODE END SysTick_IRQn 1 */
 }
 
@@ -248,5 +248,72 @@ void DMA2_Stream5_IRQHandler(void)
 }
 
 /* USER CODE BEGIN 1 */
+
+/**
+  * @brief Trình phục vụ ngắt EXTI Line 0 (PA0 - Logic Analyzer Channel 0)
+  */
+void EXTI0_IRQHandler(void)
+{
+  if (EXTI->PR & EXTI_PR_PR0) {
+    EXTI->PR = EXTI_PR_PR0;
+    la_core_on_exti_trigger_isr();
+  }
+}
+
+/**
+  * @brief Trình phục vụ ngắt EXTI Line 1 (PA1 - Logic Analyzer Channel 1)
+  */
+void EXTI1_IRQHandler(void)
+{
+  if (EXTI->PR & EXTI_PR_PR1) {
+    EXTI->PR = EXTI_PR_PR1;
+    la_core_on_exti_trigger_isr();
+  }
+}
+
+/**
+  * @brief Trình phục vụ ngắt EXTI Line 2 (PA2 - Logic Analyzer Channel 2)
+  */
+void EXTI2_IRQHandler(void)
+{
+  if (EXTI->PR & EXTI_PR_PR2) {
+    EXTI->PR = EXTI_PR_PR2;
+    la_core_on_exti_trigger_isr();
+  }
+}
+
+/**
+  * @brief Trình phục vụ ngắt EXTI Line 3 (PA3 - Logic Analyzer Channel 3)
+  */
+void EXTI3_IRQHandler(void)
+{
+  if (EXTI->PR & EXTI_PR_PR3) {
+    EXTI->PR = EXTI_PR_PR3;
+    la_core_on_exti_trigger_isr();
+  }
+}
+
+/**
+  * @brief Trình phục vụ ngắt EXTI Line 4 (PA4 - Logic Analyzer Channel 4)
+  */
+void EXTI4_IRQHandler(void)
+{
+  if (EXTI->PR & EXTI_PR_PR4) {
+    EXTI->PR = EXTI_PR_PR4;
+    la_core_on_exti_trigger_isr();
+  }
+}
+
+/**
+  * @brief Trình phục vụ ngắt EXTI Lines 9..5 (PA5, PA6, PA7 - Logic Analyzer Channels 5, 6, 7)
+  */
+void EXTI9_5_IRQHandler(void)
+{
+  uint32_t pr = EXTI->PR & 0x00E0U; /* Lines 5, 6, 7 */
+  if (pr != 0U) {
+    EXTI->PR = pr;
+    la_core_on_exti_trigger_isr();
+  }
+}
 
 /* USER CODE END 1 */

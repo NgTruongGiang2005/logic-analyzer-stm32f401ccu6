@@ -48,6 +48,9 @@ void la_core_on_exti_trigger_isr(void);
 /* Callback gọi từ ngắt tràn TIM2 (đủ 26.214 mẫu) */
 void la_core_on_tim2_period_elapsed_isr(void);
 
+/* Callback gọi từ ngắt SysTick (quản lý Timeout động) */
+void la_core_on_systick_tick(void);
+
 /* Lấy trạng thái hiện tại của FSM */
 la_state_t la_core_get_state(void);
 
