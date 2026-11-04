@@ -28,19 +28,44 @@ from software.utils.exporter import export_image, export_csv, export_vcd
 
 
 DARK_THEME_CSS = """
-QMainWindow, QWidget {
+QMainWindow {
     background-color: #18181b;
+}
+QWidget {
     color: #e4e4e7;
     font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
     font-size: 12px;
+}
+QWidget#central_widget {
+    background-color: #18181b;
+}
+QLabel {
+    background-color: transparent;
+    background: transparent;
 }
 QFrame#top_bar {
     background-color: #27272a;
     border-bottom: 1px solid #3f3f46;
 }
+QFrame#top_bar QLabel {
+    background-color: transparent;
+    background: transparent;
+}
+QFrame#top_bar QCheckBox {
+    background-color: transparent;
+    background: transparent;
+}
 QFrame#sidebar_container {
     background-color: #202023;
     border-left: 1px solid #3f3f46;
+}
+QFrame#sidebar_container QLabel {
+    background-color: transparent;
+    background: transparent;
+}
+QFrame#sidebar_container QCheckBox {
+    background-color: transparent;
+    background: transparent;
 }
 QPushButton {
     background-color: #27272a;
@@ -153,6 +178,11 @@ QStatusBar {
     color: #a1a1aa;
     border-top: 1px solid #27272a;
     font-size: 11px;
+}
+QStatusBar QLabel {
+    background-color: transparent;
+    background: transparent;
+    color: #a1a1aa;
 }
 QSplitter::handle {
     background-color: #27272a;
@@ -346,6 +376,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _init_layout(self):
         central_widget = QtWidgets.QWidget(self)
+        central_widget.setObjectName("central_widget")
         self.setCentralWidget(central_widget)
         root_layout = QtWidgets.QVBoxLayout(central_widget)
         root_layout.setContentsMargins(0, 0, 0, 0)
@@ -411,13 +442,13 @@ class MainWindow(QtWidgets.QMainWindow):
         layout.addWidget(self.btn_connect)
 
         self.lbl_led = QtWidgets.QLabel("●")
-        self.lbl_led.setStyleSheet("color: #ef4444; font-size: 15px;")
+        self.lbl_led.setStyleSheet("color: #ef4444; font-size: 15px; background: transparent;")
         layout.addWidget(self.lbl_led)
 
-        # Phân cách
+        # Phân cách 1
         sep1 = QtWidgets.QFrame()
-        sep1.setFrameShape(QtWidgets.QFrame.VLine)
-        sep1.setStyleSheet("color: #3f3f46;")
+        sep1.setFixedWidth(1)
+        sep1.setStyleSheet("background-color: #3f3f46; border: none; margin-top: 6px; margin-bottom: 6px;")
         layout.addWidget(sep1)
 
         # Cụm 2: Cấu hình lấy mẫu & Trigger (Sample Rate & Trigger Settings)
@@ -442,10 +473,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.cb_trig_mode.setCurrentIndex(2)  # Mặc định Falling Edge
         layout.addWidget(self.cb_trig_mode)
 
-        # Phân cách
+        # Phân cách 2
         sep2 = QtWidgets.QFrame()
-        sep2.setFrameShape(QtWidgets.QFrame.VLine)
-        sep2.setStyleSheet("color: #3f3f46;")
+        sep2.setFixedWidth(1)
+        sep2.setStyleSheet("background-color: #3f3f46; border: none; margin-top: 6px; margin-bottom: 6px;")
         layout.addWidget(sep2)
 
         # Cụm 3: Nút hành động chính (Start Capture / Abort)
@@ -715,11 +746,11 @@ class MainWindow(QtWidgets.QMainWindow):
     def _update_conn_ui(self, connected: bool, desc: str):
         if connected:
             self.btn_connect.setText("Disconnect")
-            self.lbl_led.setStyleSheet("color: #10b981; font-size: 15px;")
+            self.lbl_led.setStyleSheet("color: #10b981; font-size: 15px; background: transparent;")
             self.sb_conn.setText(f"Port: {desc}")
         else:
             self.btn_connect.setText("Connect")
-            self.lbl_led.setStyleSheet("color: #ef4444; font-size: 15px;")
+            self.lbl_led.setStyleSheet("color: #ef4444; font-size: 15px; background: transparent;")
             self.sb_conn.setText("Port: Disconnected")
 
     def _on_start_capture(self):

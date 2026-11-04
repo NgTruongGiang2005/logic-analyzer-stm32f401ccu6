@@ -60,16 +60,16 @@ class CursorHUDWidget(QtWidgets.QFrame):
         layout.setSpacing(14)
 
         self.lbl_a = QtWidgets.QLabel("A: 0.000 ms")
-        self.lbl_a.setStyleSheet("color: #00e5ff;")
+        self.lbl_a.setStyleSheet("color: #00e5ff; background: transparent;")
 
         self.lbl_b = QtWidgets.QLabel("B: 0.000 ms")
-        self.lbl_b.setStyleSheet("color: #ffb74d;")
+        self.lbl_b.setStyleSheet("color: #ffb74d; background: transparent;")
 
         self.lbl_dt = QtWidgets.QLabel("Δt: 0.000 µs")
-        self.lbl_dt.setStyleSheet("color: #ffffff;")
+        self.lbl_dt.setStyleSheet("color: #ffffff; background: transparent;")
 
         self.lbl_freq = QtWidgets.QLabel("f: -- Hz")
-        self.lbl_freq.setStyleSheet("color: #69f0ae;")
+        self.lbl_freq.setStyleSheet("color: #69f0ae; background: transparent;")
 
         layout.addWidget(QtWidgets.QLabel("<b>CURSORS:</b>"))
         layout.addWidget(self.lbl_a)

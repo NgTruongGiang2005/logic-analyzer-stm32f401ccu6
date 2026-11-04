@@ -90,19 +90,19 @@ class WaveformHUD(QtWidgets.QFrame):
         layout.setSpacing(12)
 
         self.lbl_title = QtWidgets.QLabel("<b>CURSORS</b>")
-        self.lbl_title.setStyleSheet("color: #a1a1aa;")
+        self.lbl_title.setStyleSheet("color: #a1a1aa; background: transparent;")
 
         self.lbl_a = QtWidgets.QLabel("A: 0.000 ms")
-        self.lbl_a.setStyleSheet("color: #00f0ff;")
+        self.lbl_a.setStyleSheet("color: #00f0ff; background: transparent;")
 
         self.lbl_b = QtWidgets.QLabel("B: 0.000 ms")
-        self.lbl_b.setStyleSheet("color: #eab308;")
+        self.lbl_b.setStyleSheet("color: #eab308; background: transparent;")
 
         self.lbl_dt = QtWidgets.QLabel("Δt: 0.000 µs")
-        self.lbl_dt.setStyleSheet("color: #ffffff;")
+        self.lbl_dt.setStyleSheet("color: #ffffff; background: transparent;")
 
         self.lbl_freq = QtWidgets.QLabel("f: -- Hz")
-        self.lbl_freq.setStyleSheet("color: #22c55e;")
+        self.lbl_freq.setStyleSheet("color: #22c55e; background: transparent;")
 
         layout.addWidget(self.lbl_title)
         layout.addWidget(self.lbl_a)
