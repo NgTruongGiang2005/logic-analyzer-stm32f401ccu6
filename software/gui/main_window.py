@@ -566,31 +566,49 @@ class MainWindow(QtWidgets.QMainWindow):
     def _create_bottom_bar(self) -> QtWidgets.QWidget:
         bar = QtWidgets.QWidget(self)
         bar.setFixedHeight(T.BOTTOM_BAR_HEIGHT)
-        bar.setStyleSheet(f"background-color: {T.BG_MAIN}; border-top: 1px solid {T.BORDER};")
+        bar.setStyleSheet(f"""
+            QWidget {{
+                background-color: {T.BG_MAIN};
+                border-top: 1px solid {T.BORDER};
+            }}
+            QTabBar::tab {{
+                background: {T.BG_MAIN};
+                color: {T.TEXT_DIM};
+                padding: 0px 16px;
+                height: {T.BOTTOM_BAR_HEIGHT - 1}px;
+                border-top: 3px solid transparent;
+                font-family: 'Segoe UI', sans-serif;
+                font-size: 13px;
+            }}
+            QTabBar::tab:selected {{
+                color: #ffffff;
+                border-top: 3px solid #ffffff;
+            }}
+        """)
 
         h_layout = QtWidgets.QHBoxLayout(bar)
-        h_layout.setContentsMargins(10, 0, 14, 0)
+        h_layout.setContentsMargins(0, 0, 16, 0)
         h_layout.setSpacing(12)
 
         # Tab Session bên trái
         self.tab_sessions = QtWidgets.QTabBar()
         self.tab_sessions.setExpanding(False)
-        self.tab_sessions.addTab("Session 0")
-        self.tab_sessions.addTab("Session 1")
+        self.tab_sessions.addTab("Session 0  ✕")
+        self.tab_sessions.addTab("Session 1  ✕")
         self.tab_sessions.addTab("+")
         self.tab_sessions.setCurrentIndex(1)
         h_layout.addWidget(self.tab_sessions)
 
         # Trạng thái kết nối ở giữa
         self.lbl_status = QtWidgets.QLabel("Ready | Offline Mock available")
-        self.lbl_status.setStyleSheet(f"color: {T.TEXT_DIM}; font-size: 12px;")
+        self.lbl_status.setStyleSheet(f"color: {T.TEXT_DIM}; font-size: 12px; background: transparent; border: none;")
         h_layout.addWidget(self.lbl_status)
 
         h_layout.addStretch(1)
 
         # Mức thu phóng ở góc phải
-        self.lbl_zoom = QtWidgets.QLabel("128 µs ⌃")
-        self.lbl_zoom.setStyleSheet(f"color: {T.TEXT_DIM}; font-size: 12px; font-weight: bold;")
+        self.lbl_zoom = QtWidgets.QLabel("128 µs ^")
+        self.lbl_zoom.setStyleSheet(f"color: {T.TEXT_DIM}; font-size: 13px; font-family: 'Segoe UI'; background: transparent; border: none;")
         h_layout.addWidget(self.lbl_zoom)
 
         return bar

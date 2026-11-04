@@ -24,8 +24,8 @@ Toàn bộ ảnh crop tham chiếu và render được lưu trữ tại `docs/ui
 | :---: | :--- | :---: | :---: | :---: | :---: |
 | **1** | **Right Action Rail** (Dải nút Start & Tools) | `(1690, 77, 1780, 1137)` | 90 × 1060 px | **ĐÃ HOÀN THÀNH** | **94.8%** (Đạt chuẩn) |
 | **2** | **Top Menu Bar** (Thanh Menu đỉnh) | `(0, 0, 1780, 76)` | 1780 × 76 px | **ĐÃ HOÀN THÀNH** | **88.0%** (Đạt chuẩn) |
-| **3** | **Bottom Bar** (Thanh Session & Zoom) | `(0, 1137, 1780, 1197)` | 1780 × 60 px | **Kế tiếp** | 64.7% |
-| **4** | **Channel Label Column** (Cột nhãn kênh) | `(0, 77, 270, 1137)` | 270 × 1060 px | Chờ thực hiện | 71.8% |
+| **3** | **Bottom Bar** (Thanh Session & Zoom) | `(0, 1137, 1780, 1197)` | 1780 × 60 px | **ĐÃ HOÀN THÀNH** | **89.4%** (Đạt chuẩn) |
+| **4** | **Channel Label Column** (Cột nhãn kênh) | `(0, 77, 270, 1137)` | 270 × 1060 px | **Kế tiếp** | 71.8% |
 | **5** | **Time Ruler** (Thước thời gian & Trigger) | `(270, 77, 1255, 123)` | 985 × 46 px | Chờ thực hiện | 44.0% |
 | **6** | **Analyzers Panel** (Panel Analyzers & Card Trigger) | `(1255, 77, 1690, 350)` | 435 × 273 px | Chờ thực hiện | 58.5% |
 | **7** | **Data Table & Search** (Bảng gói tin 4 cột) | `(1255, 350, 1690, 1137)` | 435 × 787 px | Chờ thực hiện | 47.2% |
@@ -48,20 +48,6 @@ TỔNG ĐIỂM TƯƠNG ĐỒNG: 94.8% (ĐẠT CHUẨN XUẤT SẮC)
 ---
 
 ## 4. Nghiệm Thu Component 2: Top Menu Bar
-
-### 4.1. Phân tích Pixel thực tế từ ảnh crop `ref_comp2_top_menu.png`
-1. **Nền thanh menu:** Nền trắng `#ffffff` (`rgb(255, 255, 255)`), viền trên màu xám nhạt `rgb(216, 216, 216)` tại $Y=0$.
-2. **Hàng 1: Title Bar (chiều cao 40 px):**
-   - Icon ứng dụng tại $X = 14 \dots 34$, $Y = 14 \dots 34$ (đường kính $20\text{ px}$).
-   - Tiêu đề cửa sổ tại $X = 42\text{ px}$: Font Segoe UI 12px màu `#1b1b1c`.
-   - Cụm nút điều khiển cửa sổ góc phải: Minimize (`—`, $X \approx 1605$), Maximize (`□`, $X \approx 1673$), Close (`✕`, $X \approx 1744$).
-3. **Hàng 2: Menu Bar (chiều cao 36 px):**
-   - Khoảng đệm trái: $11\text{ px}$.
-   - Tọa độ từ ngữ: `File` ($11 \dots 36$), `Edit` ($56 \dots 82$), `Capture` ($105 \dots 166$), `Measure` ($187 \dots 252$), `View` ($275 \dots 309$), `Help` ($331 \dots 365$).
-   - Khoảng cách giữa các menu: $21 \dots 23\text{ px}$.
-   - Font chữ: Segoe UI 13px màu `#1b1b1c`, không viền gạch chân.
-
-### 4.2. Kết Quả Định Lượng Bằng Công Cụ `compare_components.py`
 ```text
 Component 2 (Top Menu Bar):
 - Kích thước: (1780, 76) px
@@ -72,5 +58,31 @@ Component 2 (Top Menu Bar):
 TỔNG ĐIỂM TƯƠNG ĐỒNG: 88.0% (CHÍNH THỨC ĐẠT CHUẨN)
 --------------------------------------------------
 ```
-* **Ảnh crop tham chiếu:** `docs/ui_reference/crops/ref_comp2_top_menu.png`
-* **Ảnh crop render:** `docs/ui_reference/crops/gen_comp2_top_menu.png`
+
+---
+
+## 5. Nghiệm Thu Component 3: Bottom Bar
+
+### 5.1. Phân tích Pixel thực tế từ ảnh crop `ref_comp3_bottom_bar.png`
+1. **Viền trên đáy:** Vạch ngang phân cách $1\text{ px}$ màu `#57575e` (`rgb(87, 87, 94)`) tại $Y=0$.
+2. **Dải tab Session bên trái:**
+   - Tab 0 (`Session 0  ✕`): Inactive, chữ `#a0a0a6`, viền trên trong suốt.
+   - Tab 1 (`Session 1  ✕`): Active, chữ trắng `#ffffff`, **vạch chỉ thị trắng dày $3\text{ px}$ nằm ở mép trên tab** ($Y = 2 \dots 4$, $X = 157 \dots 308$).
+   - Tab 2 (`+`): Nút tạo phiên mới, căn giữa.
+3. **Mức thu phóng (Zoom Level) góc phải:**
+   - Tọa độ: $X = 1680 \dots 1753$, $Y = 24 \dots 40$ (căn lề phải cách biên $20\text{ px}$).
+   - Nội dung: `128 µs ^` màu `#a0a0a6` Font Segoe UI 13px.
+
+### 5.2. Kết Quả Định Lượng Bằng Công Cụ `compare_components.py`
+```text
+Component 3 (Bottom Bar):
+- Kích thước: (1780, 60) px
+- Color Histogram Similarity: 99.98%
+- Block SSIM Similarity:     73.61%
+- Visual Feature Checklist:   100.0%
+--------------------------------------------------
+TỔNG ĐIỂM TƯƠNG ĐỒNG: 89.4% (CHÍNH THỨC ĐẠT CHUẨN)
+--------------------------------------------------
+```
+* **Ảnh crop tham chiếu:** `docs/ui_reference/crops/ref_comp3_bottom_bar.png`
+* **Ảnh crop render:** `docs/ui_reference/crops/gen_comp3_bottom_bar.png`

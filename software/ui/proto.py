@@ -418,21 +418,39 @@ class MainWindow(QtWidgets.QMainWindow):
         P = self.P
         w = QtWidgets.QWidget()
         w.setFixedHeight(px(P["bottom_h"]))
+        w.setStyleSheet(f"""
+            QWidget {{
+                background-color: {T.BG_MAIN};
+                border-top: 1px solid {T.GRID};
+            }}
+            QTabBar::tab {{
+                background: {T.BG_MAIN};
+                color: {T.TEXT_DIM};
+                padding: 0px {px(16)}px;
+                height: {px(P["bottom_h"]) - 1}px;
+                border-top: {px(3)}px solid transparent;
+                font-family: 'Segoe UI';
+                font-size: {px(13)}px;
+            }}
+            QTabBar::tab:selected {{
+                color: #ffffff;
+                border-top: {px(3)}px solid #ffffff;
+            }}
+        """)
         h = QtWidgets.QHBoxLayout(w)
-        h.setContentsMargins(px(8), 0, px(12), 0)
-        if P["rail_w"]:
-            tabs = QtWidgets.QTabBar(); tabs.setExpanding(False)
-            for t in ("Session 0", "Session 1", "+"):
-                tabs.addTab(t)
-            tabs.setCurrentIndex(1)
-            h.addWidget(tabs)
-            h.addStretch(1)
-            h.addWidget(QtWidgets.QLabel("128 µs ⌃"))
-        else:
-            h.addWidget(QtWidgets.QLabel("Connected (v1.0.0)  |  1 MHz  |  32768 samples"))
-            h.addStretch(1)
-            b = QtWidgets.QPushButton("Start"); b.setStyleSheet(f"background:{T.ACCENT_START};border:none;")
-            h.addWidget(b)
+        h.setContentsMargins(0, 0, px(20), 0)
+        tabs = QtWidgets.QTabBar()
+        tabs.setExpanding(False)
+        tabs.addTab("Session 0  ✕")
+        tabs.addTab("Session 1  ✕")
+        tabs.addTab("+")
+        tabs.setCurrentIndex(1)
+        h.addWidget(tabs)
+        h.addStretch(1)
+
+        lbl_zoom = QtWidgets.QLabel("128 µs ^")
+        lbl_zoom.setStyleSheet(f"color: {T.TEXT_DIM}; font-family: 'Segoe UI'; font-size: {px(13)}px; border: none; background: transparent;")
+        h.addWidget(lbl_zoom)
         return w
 
 
