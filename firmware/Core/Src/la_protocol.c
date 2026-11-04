@@ -160,7 +160,7 @@ void la_protocol_process_rx_bytes(const uint8_t *data, uint32_t len)
         } else if (cmd_id == 0x01) { /* START */
             if (rate_idx > 8) {
                 la_protocol_send_control_frame(LA_ERR_INVALID_RATE, cmd_id, rate_idx, trig_cfg);
-            } else if ((trig_cfg >> 4) > 7) {
+            } else if (((trig_cfg >> 4) > 7) || ((trig_cfg & 0x0F) > 2)) {
                 la_protocol_send_control_frame(LA_ERR_INVALID_TRIG, cmd_id, rate_idx, trig_cfg);
             } else {
                 if (!la_core_start_capture(rate_idx, trig_cfg)) {

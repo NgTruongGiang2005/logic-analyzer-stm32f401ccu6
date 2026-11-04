@@ -115,7 +115,7 @@ Embedded_System/
 | **Bước 1: Free-Run Base** | Thông luồng TIM1 -> DMA2 -> Buffer 32KB -> USB-CDC streaming. Kiểm chứng PING và 32KB data. | ✅ **Đã hoàn thành** |
 | **Bước 2: Loopback Self-Test** | USART1 TX trên PA9 phát test frame 115200 bps nối jumper sang PA0. | ✅ **Đã hoàn thành** |
 | **Bước 3: Full FSM Trigger** | DMA Half-Transfer -> Unmask EXTI -> Kích TIM2 One-Pulse -> Unroll Buffer. | ✅ **Đã hoàn thành** |
-| **Bước 4: Edge Cases & Polish**| Timeout SysTick, Ping, Abort, NAK, USB Watchdog 100ms. | 🔄 **Đang thực hiện** |
+| **Bước 4: Edge Cases & Polish**| Timeout SysTick, Ping, Abort, NAK, USB Watchdog 100ms. | ✅ **Đã hoàn thành** |
 
 ---
 

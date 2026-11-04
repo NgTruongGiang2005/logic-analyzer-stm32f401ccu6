@@ -85,11 +85,15 @@ void la_core_init(void)
     SYSCFG->EXTICR[0] &= ~0xFFFFU; /* PA0, PA1, PA2, PA3 */
     SYSCFG->EXTICR[1] &= ~0xFFFFU; /* PA4, PA5, PA6, PA7 */
 
-    /* 4. Khóa toàn bộ ngắt EXTI và xóa cờ ngắt ban đầu */
+    /* 4. Cấu hình Pull-down nội cho PA0..PA7 để chống nhiễu chân thả nổi (Floating Inputs) */
+    GPIOA->PUPDR &= ~0x0000FFFFU;
+    GPIOA->PUPDR |=  0x0000AAAAU; /* 10 = Pull-down cho chân 0..7 */
+
+    /* 5. Khóa toàn bộ ngắt EXTI và xóa cờ ngắt ban đầu */
     EXTI->IMR &= ~0x00FFU;
     EXTI->PR = 0x00FFU;
 
-    /* 5. Cài đặt NVIC Priority 0 (Cao nhất - SSoT AGENTS.md) cho EXTI 0..7 */
+    /* 6. Cài đặt NVIC Priority 0 (Cao nhất - SSoT AGENTS.md) cho EXTI 0..7 */
     HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(EXTI0_IRQn);
 
