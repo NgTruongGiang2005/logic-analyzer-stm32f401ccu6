@@ -80,40 +80,59 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Top Bar gồm Title Bar + Menu Bar (Tổng chiều cao đúng 76 px theo ref_comp2_top_menu)
         top_container = QtWidgets.QWidget()
+        top_container.setObjectName("topContainer")
         top_container.setFixedHeight(76)
-        top_container.setStyleSheet("background-color: #ffffff; color: #1b1b1c; border-bottom: 1px solid #57575e;")
+        top_container.setStyleSheet("""
+            QWidget#topContainer {
+                background-color: #ffffff;
+                color: #1b1b1c;
+                border-top: 1px solid #d8d8d8;
+                border-bottom: none;
+            }
+            QWidget {
+                background-color: #ffffff;
+                border: none;
+            }
+        """)
         top_v = QtWidgets.QVBoxLayout(top_container)
-        top_v.setContentsMargins(10, 4, 10, 4)
+        top_v.setContentsMargins(0, 0, 0, 0)
         top_v.setSpacing(0)
 
-        # Hàng 1: Title bar
-        row_title = QtWidgets.QHBoxLayout()
-        row_title.setContentsMargins(0, 0, 0, 0)
+        # Hàng 1: Title bar (chiều cao 40 px)
+        row_title_w = QtWidgets.QWidget()
+        row_title_w.setFixedHeight(40)
+        row_title = QtWidgets.QHBoxLayout(row_title_w)
+        row_title.setContentsMargins(14, 0, 15, 0)
+        row_title.setSpacing(8)
+
         lbl_icon = QtWidgets.QLabel("⚙")
-        lbl_icon.setStyleSheet("font-size: 14px; color: #000000; border: none;")
-        lbl_title = QtWidgets.QLabel("<b>Logic 2 [Logic Pro 8 - Demo] [Session 1]</b>")
-        lbl_title.setStyleSheet("font-size: 12px; color: #1b1b1c; border: none; font-family: 'Segoe UI';")
+        lbl_icon.setStyleSheet("font-size: 16px; color: #3b82f6; border: none; background: transparent;")
+        lbl_title = QtWidgets.QLabel("Logic 2 [Logic Pro 8 - Demo] [Session 1]")
+        lbl_title.setStyleSheet("font-size: 12px; color: #1b1b1c; border: none; font-family: 'Segoe UI'; font-weight: normal; background: transparent;")
         row_title.addWidget(lbl_icon)
-        row_title.addSpacing(6)
         row_title.addWidget(lbl_title)
         row_title.addStretch(1)
 
-        for btn_txt in ("—", "□", "✕"):
+        for btn_txt, w_btn in (("—", 46), ("□", 46), ("✕", 48)):
             btn_w = QtWidgets.QLabel(btn_txt)
-            btn_w.setStyleSheet("font-size: 13px; color: #1b1b1c; padding: 0 8px; border: none;")
+            btn_w.setFixedWidth(w_btn)
+            btn_w.setAlignment(QtCore.Qt.AlignCenter)
+            btn_w.setStyleSheet("font-size: 13px; color: #1b1b1c; border: none; background: transparent;")
             row_title.addWidget(btn_w)
-        top_v.addLayout(row_title)
+        top_v.addWidget(row_title_w)
 
-        # Hàng 2: Menu bar
-        row_menu = QtWidgets.QHBoxLayout()
-        row_menu.setContentsMargins(0, 2, 0, 0)
-        row_menu.setSpacing(16)
+        # Hàng 2: Menu bar (chiều cao 36 px)
+        row_menu_w = QtWidgets.QWidget()
+        row_menu_w.setFixedHeight(36)
+        row_menu = QtWidgets.QHBoxLayout(row_menu_w)
+        row_menu.setContentsMargins(11, 4, 0, 4)
+        row_menu.setSpacing(22)
         for m in ("File", "Edit", "Capture", "Measure", "View", "Help"):
             lbl_m = QtWidgets.QLabel(m)
-            lbl_m.setStyleSheet("font-size: 13px; color: #1b1b1c; border: none; font-family: 'Segoe UI';")
+            lbl_m.setStyleSheet("font-size: 13px; color: #1b1b1c; border: none; font-family: 'Segoe UI'; font-weight: normal; background: transparent;")
             row_menu.addWidget(lbl_m)
         row_menu.addStretch(1)
-        top_v.addLayout(row_menu)
+        top_v.addWidget(row_menu_w)
 
         self.setMenuWidget(top_container)
 

@@ -138,6 +138,41 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _init_menu_bar(self):
         menubar = self.menuBar()
+        menubar.setStyleSheet("""
+            QMenuBar {
+                background-color: #ffffff;
+                color: #1b1b1c;
+                border-bottom: 1px solid #57575e;
+                font-family: 'Segoe UI', 'Inter', sans-serif;
+                font-size: 13px;
+                padding: 2px 6px;
+            }
+            QMenuBar::item {
+                background: transparent;
+                color: #1b1b1c;
+                padding: 4px 10px;
+                margin-right: 4px;
+            }
+            QMenuBar::item:selected {
+                background-color: #e4e4e7;
+                border-radius: 4px;
+            }
+            QMenu {
+                background-color: #ffffff;
+                color: #1b1b1c;
+                border: 1px solid #d4d4d8;
+                padding: 4px;
+            }
+            QMenu::item {
+                padding: 6px 24px 6px 16px;
+                color: #1b1b1c;
+            }
+            QMenu::item:selected {
+                background-color: #e4e4e7;
+                color: #1b1b1c;
+                border-radius: 3px;
+            }
+        """)
 
         # File
         menu_file = menubar.addMenu("&File")

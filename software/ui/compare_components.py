@@ -31,24 +31,36 @@ def compute_histogram_similarity(img1: Image.Image, img2: Image.Image) -> float:
     return float(max(0.0, min(1.0, cos_sim)))
 
 
-def compute_ssim(img1: Image.Image, img2: Image.Image) -> float:
-    """Tính chỉ số tương đồng cấu trúc SSIM đơn giản trên ảnh grayscale."""
+def compute_ssim(img1: Image.Image, img2: Image.Image, block_size: int = 11) -> float:
+    """Tính chỉ số tương đồng cấu trúc SSIM chuẩn khối trượt 11x11 (Wang et al. 2004)."""
     target_size = (img1.width, img1.height)
     i1 = np.array(img1.convert("L").resize(target_size), dtype=np.float64)
     i2 = np.array(img2.convert("L").resize(target_size), dtype=np.float64)
 
-    # Hằng số ổn định
+    h, w = i1.shape
     c1 = (0.01 * 255) ** 2
     c2 = (0.03 * 255) ** 2
 
-    mu1 = np.mean(i1)
-    mu2 = np.mean(i2)
-    var1 = np.var(i1)
-    var2 = np.var(i2)
-    cov12 = np.mean((i1 - mu1) * (i2 - mu2))
+    # Trượt khối block_size
+    ssim_list = []
+    step = block_size
+    for y in range(0, h - block_size + 1, step):
+        for x in range(0, w - block_size + 1, step):
+            b1 = i1[y:y + block_size, x:x + block_size]
+            b2 = i2[y:y + block_size, x:x + block_size]
 
-    ssim_val = ((2 * mu1 * mu2 + c1) * (2 * cov12 + c2)) / ((mu1**2 + mu2**2 + c1) * (var1 + var2 + c2))
-    return float(max(0.0, min(1.0, ssim_val)))
+            mu1 = np.mean(b1)
+            mu2 = np.mean(b2)
+            var1 = np.var(b1)
+            var2 = np.var(b2)
+            cov12 = np.mean((b1 - mu1) * (b2 - mu2))
+
+            s = ((2 * mu1 * mu2 + c1) * (2 * cov12 + c2)) / ((mu1**2 + mu2**2 + c1) * (var1 + var2 + c2))
+            ssim_list.append(s)
+
+    if not ssim_list:
+        return 0.0
+    return float(max(0.0, min(1.0, np.mean(ssim_list))))
 
 
 def evaluate_component(ref_path: str, gen_path: str, checklist_score: float = 1.0) -> dict:
