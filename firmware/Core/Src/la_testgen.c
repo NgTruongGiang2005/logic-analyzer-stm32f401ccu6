@@ -2,33 +2,42 @@
   ******************************************************************************
   * @file    la_testgen.c
   * @brief   Triển khai kênh phát tín hiệu mẫu tự kiểm tra trên chân PA9.
-  *          Thành viên phụ trách: TV1 (Firmware STM32).
+  * @author  Nguyen Van Hoi (Firmware Engineer)
   ******************************************************************************
   */
 
 #include "la_testgen.h"
 #include <string.h>
 
+#if __has_include("main.h")
+#include "main.h"
+#endif
+
+#if __has_include("usart.h")
+#include "usart.h"
+#endif
+
 static const char *TEST_MESSAGE = "TEST_LA_2026\r\n";
 static uint32_t g_last_tx_tick = 0;
 
-/* Giả lập lấy tick hệ thống từ HAL_GetTick hoặc biến đếm SysTick */
 extern uint32_t HAL_GetTick(void);
+#if defined(HAL_UART_MODULE_ENABLED) || defined(USART1)
+extern UART_HandleTypeDef huart1;
+#endif
 
 void la_testgen_init(void)
 {
-    /* Cấu hình USART1 trên PA9 (Baudrate 115200, 8-N-1) */
-    /* Khi tạo project bằng CubeMX, cấu hình USART1_TX trên PA9 */
     g_last_tx_tick = 0;
 }
 
 void la_testgen_process(void)
 {
     uint32_t now = HAL_GetTick();
-    /* Phát chuỗi test định kỳ mỗi 50 ms */
-    if (now - g_last_tx_tick >= 50) {
+    /* Phát chuỗi test định kỳ mỗi 20 ms để đảm bảo khung 32ms luôn bắt trọn ít nhất 1 frame */
+    if ((now - g_last_tx_tick) >= 20) {
         g_last_tx_tick = now;
-        /* TODO: Gọi hàm truyền USART1 (ví dụ HAL_UART_Transmit_IT hoặc LL_USART) */
-        /* HAL_UART_Transmit(&huart1, (uint8_t*)TEST_MESSAGE, strlen(TEST_MESSAGE), 10); */
+#if defined(HAL_UART_MODULE_ENABLED) || defined(USART1)
+        HAL_UART_Transmit(&huart1, (uint8_t*)TEST_MESSAGE, (uint16_t)strlen(TEST_MESSAGE), 10);
+#endif
     }
 }

@@ -6,11 +6,11 @@
 
 ## 1. Phân công Thành viên & Vai trò (Team Roles)
 
-| Thành viên | Phân hệ Phụ trách | Thư mục Làm việc | Nhiệm vụ Trọng tâm |
-| :--- | :--- | :--- | :--- |
-| **TV1** | **Firmware STM32** | `firmware/` | Cấu hình SYSCLK 84MHz, USB-CDC 48MHz, TIM1+TIM2 Cascade, DMA2_Stream5 đọc GPIOA->IDR, FSM Pre/Post-trigger, kênh phát UART PA9. |
-| **TV2** | **Phần cứng & Mô phỏng** | `hardware/` | Mô phỏng LTspice 4 kịch bản (quá áp +12V..+15V 8 kênh, xung 200V / 1ms 1 kênh trên trở động, đáp ứng 1-3MHz), thiết kế Schematic/PCB bảo vệ & đệm 74LVC245. |
-| **TV3** | **Phần mềm PC (GUI & Decoder)** | `software/` | Viết Python Desktop GUI (PyQt5 + pyqtgraph), thuật toán giải mã UART 115200 bps (mở rộng I2C/SPI), bộ kiểm thử mock serial. |
+| Mã vai trò | Họ và Tên | MSSV | Phân hệ Phụ trách | Thư mục Làm việc | Nhiệm vụ Trọng tâm |
+| :---: | :--- | :---: | :--- | :--- | :--- |
+| **TV1** | **Nguyễn Văn Hội** | **20233419** | **Firmware STM32** | `firmware/` | Cấu hình SYSCLK 84MHz, USB-CDC 48MHz, TIM1+TIM2 Cascade, DMA2_Stream5 đọc GPIOA->IDR, FSM Pre/Post-trigger, kênh phát UART PA9. |
+| **TV2** | **Nguyễn Văn Khang** | **20233458** | **Phần cứng & Mô phỏng** | `hardware/` | Mô phỏng LTspice 4 kịch bản (quá áp +12V..+15V 8 kênh, xung 200V / 1ms 1 kênh trên trở động, đáp ứng 1-3MHz), thiết kế Schematic/PCB bảo vệ & đệm 74LVC245. |
+| **TV3** | **Nguyễn Trường Giang** | **20233374** | **Phần mềm PC (GUI & Decoder)** | `software/` | Viết Python Desktop GUI (PyQt5 + pyqtgraph), thuật toán giải mã UART 115200 bps (mở rộng I2C/SPI), bộ kiểm thử mock serial. |
 
 ---
 
@@ -55,6 +55,7 @@ Embedded_System/
 │   ├── STM32F401_STLink.launch     # Cấu hình nạp debug ST-Link dùng chung
 │   ├── Core/Startup/               # startup_stm32f401ccux.s
 │   ├── Core/Inc/, Core/Src/        # Code hệ thống + la_core, la_protocol, la_testgen
+│   ├── tests/                      # Bộ kịch bản Python kiểm thử phần cứng HIL (Steps 1-4)
 │   ├── USB_DEVICE/                 # Middleware USB-CDC
 │   ├── Drivers/                    # CMSIS & ST HAL/LL Drivers (Commit trực tiếp để build ngay)
 │   └── Middlewares/                # ST USB Device Library (Commit trực tiếp)
@@ -83,8 +84,11 @@ Embedded_System/
 
 ### Dành cho TV1 (Firmware):
 1. Mở **STM32CubeIDE**, chọn `File -> Open Projects from File System...`, trỏ tới thư mục `firmware/`.
-2. Bấm nút **Build** (`Ctrl+B`) để kiểm tra biên dịch dự án.
-3. Cắm kit Black Pill vào mạch nạp ST-Link (SWDIO, SWCLK, GND, 3V3), chọn Run Debug với profile `STM32F401_STLink.launch`.
+2. Bấm nút **Build** (`Ctrl+B`) để kiểm tra biên dịch dự án (hoặc chạy CLI make từ terminal).
+3. **Nạp Firmware:**
+   * *Cách 1 (Chính thức - ROM USB DFU qua cáp Type-C):* Giữ `BOOT0`, bấm nhả `NRST`, chạy:
+     `STM32_Programmer_CLI -c port=usb1 -d firmware/STM32CubeIDE/Debug/firmware.elf -v -s`
+   * *Cách 2 (Debug SWD nâng cao):* Nối ST-Link (SWDIO, SWCLK, GND, 3V3), chọn Run Debug với profile `STM32F401_STLink.launch`.
 
 ### Dành cho TV3 (Python GUI & Decoder):
 1. Di chuyển vào thư mục `software/` và cài đặt thư viện phụ thuộc:
@@ -105,7 +109,18 @@ Embedded_System/
 
 ---
 
-## 5. Tài liệu Tham khảo Chính
+## 5. Tiến độ Triển khai Firmware (TV1)
+
+| Mốc triển khai | Nội dung kỹ thuật | Trạng thái |
+| :--- | :--- | :---: |
+| **Bước 1: Free-Run Base** | Thông luồng TIM1 -> DMA2 -> Buffer 32KB -> USB-CDC streaming. Kiểm chứng PING và 32KB data. | ✅ **Đã hoàn thành** |
+| **Bước 2: Loopback Self-Test** | USART1 TX trên PA9 phát test frame 115200 bps nối jumper sang PA0. | ✅ **Đã hoàn thành** |
+| **Bước 3: Full FSM Trigger** | DMA Half-Transfer -> Unmask EXTI -> Kích TIM2 One-Pulse -> Unroll Buffer. | ✅ **Đã hoàn thành** |
+| **Bước 4: Edge Cases & Polish**| Timeout SysTick, Ping, Abort, NAK, USB Watchdog 100ms. | ✅ **Đã hoàn thành** |
+
+---
+
+## 6. Tài liệu Tham khảo Chính
 * [Đề bài Yêu cầu Kỹ thuật](spec/Logic_analyzer_requirements.md)
 * [Bản Đặc tả Kỹ thuật Hệ thống](spec/logic_analyzer_specification.md)
 * [Hợp đồng Giao thức Truyền thông](spec/protocol.md)
