@@ -49,7 +49,7 @@ Embedded_System/
 │   └── protocol.md                      # Hợp đồng truyền thông nhị phân giữa TV1 và TV3
 │
 ├── firmware/                       # Mã nguồn STM32CubeIDE (TV1)
-│   ├── logic_analyzer.ioc          # File cấu hình STM32CubeMX
+│   ├── firmware.ioc                # File cấu hình STM32CubeMX
 │   ├── .project, .cproject         # Project descriptors của Eclipse/CubeIDE
 │   ├── STM32F401CCUX_FLASH.ld      # Linker script
 │   ├── STM32F401_STLink.launch     # Cấu hình nạp debug ST-Link dùng chung
