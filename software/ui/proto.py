@@ -114,6 +114,94 @@ class TimeRulerWidget(QtWidgets.QWidget):
         painter.end()
 
 
+class AnalyzersPanelWidget(QtWidgets.QWidget):
+    """Component 6: Analyzers Panel (435x273 px) chuẩn Saleae Logic 2."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedHeight(273)
+        self.setStyleSheet(f"background-color: {T.BG_MAIN}; border: none;")
+        v = QtWidgets.QVBoxLayout(self)
+        v.setContentsMargins(20, 28, 20, 10)
+        v.setSpacing(0)
+
+        # 1. Header: Analyzers + '+'
+        h = QtWidgets.QHBoxLayout()
+        h.setContentsMargins(0, 0, 0, 0)
+        lbl_title = QtWidgets.QLabel("Analyzers")
+        lbl_title.setStyleSheet("font-family: 'Segoe UI'; font-size: 21px; font-weight: bold; color: #ffffff; border: none;")
+        h.addWidget(lbl_title)
+        h.addStretch(1)
+
+        lbl_plus = QtWidgets.QLabel("+")
+        lbl_plus.setStyleSheet(f"font-family: 'Segoe UI'; font-size: 20px; color: {T.TEXT_DIM}; border: none; padding-right: 12px;")
+        h.addWidget(lbl_plus)
+        v.addLayout(h)
+
+        v.addSpacing(32)
+
+        # 2. Async Serial
+        row_uart = QtWidgets.QHBoxLayout()
+        row_uart.setContentsMargins(4, 0, 0, 0)
+        row_uart.setSpacing(10)
+        sq_uart = QtWidgets.QLabel("■")
+        sq_uart.setStyleSheet("color: #d3ccb0; font-size: 14px; border: none;")
+        lbl_uart = QtWidgets.QLabel("Async Serial")
+        lbl_uart.setStyleSheet("font-family: 'Segoe UI'; font-size: 15px; font-weight: bold; color: #ffffff; border: none;")
+        chk_uart = QtWidgets.QLabel("●")
+        chk_uart.setStyleSheet(f"color: {T.ACCENT_START}; font-size: 14px; border: none;")
+        row_uart.addWidget(sq_uart)
+        row_uart.addWidget(lbl_uart)
+        row_uart.addWidget(chk_uart)
+        row_uart.addStretch(1)
+        v.addLayout(row_uart)
+
+        v.addSpacing(26)
+
+        # 3. I2C
+        row_i2c = QtWidgets.QHBoxLayout()
+        row_i2c.setContentsMargins(4, 0, 0, 0)
+        row_i2c.setSpacing(10)
+        sq_i2c = QtWidgets.QLabel("■")
+        sq_i2c.setStyleSheet("color: #4fc3e8; font-size: 14px; border: none;")
+        lbl_i2c = QtWidgets.QLabel("I2C")
+        lbl_i2c.setStyleSheet("font-family: 'Segoe UI'; font-size: 15px; font-weight: bold; color: #ffffff; border: none;")
+        chk_i2c = QtWidgets.QLabel("●")
+        chk_i2c.setStyleSheet(f"color: {T.ACCENT_START}; font-size: 14px; border: none;")
+        row_i2c.addWidget(sq_i2c)
+        row_i2c.addWidget(lbl_i2c)
+        row_i2c.addWidget(chk_i2c)
+        row_i2c.addStretch(1)
+        v.addLayout(row_i2c)
+
+        v.addSpacing(22)
+
+        # 4. Trigger View card
+        card = QtWidgets.QFrame()
+        card.setFixedHeight(54)
+        card.setStyleSheet(f"QFrame {{ background-color: {T.BG_CARD}; border-radius: 6px; border: 1px solid #3a3a3e; }}")
+        cl = QtWidgets.QHBoxLayout(card)
+        cl.setContentsMargins(14, 0, 14, 0)
+        lbl_card = QtWidgets.QLabel("›  Trigger View ⚠")
+        lbl_card.setStyleSheet("font-family: 'Segoe UI'; font-size: 14px; font-weight: bold; color: #ffffff; border: none; background: transparent;")
+        cl.addWidget(lbl_card)
+        cl.addStretch(1)
+        btn_close = QtWidgets.QLabel("✕")
+        btn_close.setAlignment(QtCore.Qt.AlignCenter)
+        btn_close.setFixedSize(22, 22)
+        btn_close.setStyleSheet(f"background-color: {T.BG_SELECT}; border-radius: 11px; color: {T.TEXT_DIM}; font-size: 11px; border: none;")
+        cl.addWidget(btn_close)
+        v.addWidget(card)
+
+        v.addStretch(1)
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        p = QtGui.QPainter(self)
+        p.setPen(QtGui.QPen(QtGui.QColor(87, 87, 94), 1))
+        p.drawLine(0, 0, 0, self.height())
+        p.end()
+
+
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, P):
         super().__init__()
@@ -329,28 +417,24 @@ class MainWindow(QtWidgets.QMainWindow):
         w = QtWidgets.QWidget()
         w.setFixedWidth(px(P["right_w"]))
         v = QtWidgets.QVBoxLayout(w)
-        v.setContentsMargins(px(12), px(8), px(12), px(8))
-        v.setSpacing(px(8))
-        h = QtWidgets.QHBoxLayout()
-        t = QtWidgets.QLabel("Analyzers"); t.setStyleSheet(f"font-size:{px(19)}px;font-weight:bold;")
-        h.addWidget(t); h.addStretch(1); h.addWidget(QtWidgets.QLabel("+"))
-        v.addLayout(h)
-        a = QtWidgets.QLabel(f"<span style='color:{T.DECODE_UART_BG}'>&#9632;</span> &nbsp;Async Serial &nbsp;"
-                             f"<span style='color:{T.ACCENT_START}'>&#10004;</span>")
-        a.setStyleSheet(f"font-size:{px(16)}px;")
-        v.addWidget(a)
-        card = QtWidgets.QFrame(); card.setStyleSheet(f"QFrame{{background:{T.BG_CARD};border-radius:{px(4)}px;}}")
-        cl = QtWidgets.QHBoxLayout(card); cl.setContentsMargins(px(10), px(8), px(10), px(8))
-        cl.addWidget(QtWidgets.QLabel("› Trigger View ⚠")); cl.addStretch(1)
-        if P.get("card_close"):
-            x = QtWidgets.QLabel("✕"); x.setStyleSheet(f"background:{T.BG_SELECT};border-radius:{px(10)}px;padding:{px(2)}px {px(8)}px;")
-            cl.addWidget(x)
-        v.addWidget(card)
+        v.setContentsMargins(0, 0, 0, 0)
+        v.setSpacing(0)
+
+        # Component 6: Analyzers Panel (435x273 px)
+        ana = AnalyzersPanelWidget()
+        v.addWidget(ana)
+
+        # Phần Data Table bên dưới (Component 7)
+        data_container = QtWidgets.QWidget()
+        dv = QtWidgets.QVBoxLayout(data_container)
+        dv.setContentsMargins(px(12), px(8), px(12), px(8))
+        dv.setSpacing(px(8))
+
         d = QtWidgets.QLabel(f"Data &nbsp;<span style='color:{T.ACCENT_START}'>&#10004;</span>")
         d.setStyleSheet(f"font-size:{px(19)}px;font-weight:bold;")
-        v.addWidget(d)
+        dv.addWidget(d)
         s = QtWidgets.QLineEdit(); s.setPlaceholderText("Type to search")
-        v.addWidget(s)
+        dv.addWidget(s)
         mk = bool(P.get("table_marker"))
         nc = 4 if mk else 3
         tb = QtWidgets.QTableWidget(14, nc)
@@ -377,7 +461,9 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             for c, wd in enumerate((70, 120)):
                 tb.setColumnWidth(c, px(wd))
-        v.addWidget(tb, 1)
+        dv.addWidget(tb, 1)
+
+        v.addWidget(data_container, 1)
         return w
 
     # ---- dải icon phải -------------------------------------------------------

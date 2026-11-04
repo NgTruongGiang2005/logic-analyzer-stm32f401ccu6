@@ -27,8 +27,8 @@ Toàn bộ ảnh crop tham chiếu và render được lưu trữ tại `docs/ui
 | **3** | **Bottom Bar** (Thanh Session & Zoom) | `(0, 1137, 1780, 1197)` | 1780 × 60 px | **ĐÃ HOÀN THÀNH** | **89.4%** (Đạt chuẩn) |
 | **4** | **Channel Label Column** (Cột nhãn kênh) | `(0, 77, 270, 1137)` | 270 × 1060 px | **ĐÃ HOÀN THÀNH** | **85.7%** (Đạt chuẩn) |
 | **5** | **Time Ruler** (Thước thời gian & Trigger) | `(270, 77, 1255, 123)` | 985 × 46 px | **ĐÃ HOÀN THÀNH** | **87.4%** (Đạt chuẩn) |
-| **6** | **Analyzers Panel** (Panel Analyzers & Card Trigger) | `(1255, 77, 1690, 350)` | 435 × 273 px | **Kế tiếp** | 58.5% |
-| **7** | **Data Table & Search** (Bảng gói tin 4 cột) | `(1255, 350, 1690, 1137)` | 435 × 787 px | Chờ thực hiện | 47.2% |
+| **6** | **Analyzers Panel** (Panel Analyzers & Card Trigger) | `(1255, 77, 1690, 350)` | 435 × 273 px | **ĐÃ HOÀN THÀNH** | **88.7%** (Đạt chuẩn) |
+| **7** | **Data Table & Search** (Bảng gói tin 4 cột) | `(1255, 350, 1690, 1137)` | 435 × 787 px | **Kế tiếp** | 47.2% |
 | **8** | **Waveform Viewport** (Khung sóng & Bong bóng) | `(270, 123, 1255, 1137)` | 985 × 1014 px | Chờ thực hiện | 59.5% |
 
 ---
@@ -132,3 +132,35 @@ TỔNG ĐIỂM TƯƠNG ĐỒNG: 87.4% (CHÍNH THỨC ĐẠT CHUẨN)
 ```
 * **Ảnh crop tham chiếu:** `docs/ui_reference/crops/ref_comp5_time_ruler.png`
 * **Ảnh crop render:** `docs/ui_reference/crops/gen_comp5_time_ruler.png`
+
+---
+
+## 8. Nghiệm Thu Component 6: Analyzers Panel
+
+### 8.1. Phân tích Pixel thực tế từ ảnh crop `ref_comp6_analyzers_panel.png`
+1. **Kích thước hình học:** Rộng đúng $435\text{ px}$, cao $273\text{ px}$, tọa độ `(1255, 77, 1690, 350)`.
+2. **Tiêu đề & Nút thêm Analyzer:**
+   - Tiêu đề `Analyzers` tại $X = 23 \dots 126\text{ px}$, $Y = 35 \dots 57\text{ px}$, Font Segoe UI 21px Bold màu `#ffffff`.
+   - Nút `+` tại $X = 389 \dots 403\text{ px}$, $Y = 37 \dots 51\text{ px}$, màu `#8b8b93`.
+3. **Danh sách Analyzer đang hoạt động:**
+   - **Hàng 1:** Ô vuông `#d3ccb0` + nhãn in đậm `Async Serial` + chấm tròn trạng thái màu xanh lá `#2e9949`, vị trí $Y = 101 \dots 120\text{ px}$.
+   - **Hàng 2:** Ô vuông xanh dương `#4fc3e8` + nhãn in đậm `I2C` + chấm tròn trạng thái màu xanh lá `#2e9949`, vị trí $Y = 159 \dots 173\text{ px}$.
+4. **Thẻ thu gọn Trigger View:**
+   - Card bo góc $6\text{ px}$, viền `$1\text{ px}$` `#3a3a3e`, nền `#2c2c2e`, kích thước $393 \times 54\text{ px}$ tại $Y = 197 \dots 252\text{ px}$.
+   - Nhãn `›  Trigger View ⚠` bên trái, nút đóng tròn `✕` nền `#3a3a3e` bên phải.
+5. **Đường viền ngăn cách:**
+   - Viền trái `$1\text{ px}$` `#57575e` ngăn cách với vùng Waveform.
+
+### 8.2. Kết Quả Định Lượng Bằng Công Cụ `compare_components.py`
+```text
+Component 6 (Analyzers Panel):
+- Kích thước: (435, 273) px
+- Color Histogram Similarity: 99.94%
+- Block SSIM Similarity:      71.69%
+- Visual Feature Checklist:   100.0%
+--------------------------------------------------
+TỔNG ĐIỂM TƯƠNG ĐỒNG: 88.7% (CHÍNH THỨC ĐẠT CHUẨN)
+--------------------------------------------------
+```
+* **Ảnh crop tham chiếu:** `docs/ui_reference/crops/ref_comp6_analyzers_panel.png`
+* **Ảnh crop render:** `docs/ui_reference/crops/gen_comp6_analyzers_panel.png`
