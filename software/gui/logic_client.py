@@ -58,42 +58,55 @@ class LogicAnalyzerClient:
         self.ser: Optional[serial.Serial] = None
         self.port_name: str = ""
         self.baudrate: int = 115200
+        self.is_offline_mock: bool = False
 
     @property
     def is_connected(self) -> bool:
-        return self.ser is not None and self.ser.is_open
+        return self.is_offline_mock or (self.ser is not None and self.ser.is_open)
 
     @staticmethod
     def list_ports() -> List[Tuple[str, str]]:
         """
         Quét toàn bộ cổng serial khả dụng trên hệ thống (Linux /dev/ttyACM*, Windows COM*).
+        Luôn đính kèm tùy chọn Offline Mock phục vụ kiểm thử không cần mạch thật.
         :return: Danh sách tuple (port_device, port_description)
         """
         ports = serial.tools.list_ports.comports()
         result = []
         for p in ports:
             result.append((p.device, f"{p.device} - {p.description}"))
+        # Luôn cung cấp cổng ảo Offline Mock ở cuối danh sách
+        result.append(("OFFLINE_MOCK", "⚡ Offline Mock (sample_data_1mhz.bin)"))
         return result
 
     def connect(self, port: str, baudrate: int = 115200, timeout: float = 1.0) -> Tuple[bool, str]:
         """
-        Mở kết nối serial tới cổng được chỉ định.
+        Mở kết nối serial tới cổng được chỉ định hoặc kích hoạt chế độ Offline Mock.
         """
         self.disconnect()
+        if port == "OFFLINE_MOCK":
+            self.is_offline_mock = True
+            self.port_name = port
+            self.baudrate = baudrate
+            return True, "Đã kết nối chế độ Offline Mock (sample_data_1mhz.bin)"
+
         try:
             self.ser = serial.Serial(port, baudrate=baudrate, timeout=timeout)
             self.port_name = port
             self.baudrate = baudrate
+            self.is_offline_mock = False
             self.ser.reset_input_buffer()
             self.ser.reset_output_buffer()
             time.sleep(0.05)
             return True, f"Đã kết nối thành công tới {port}"
         except Exception as e:
             self.ser = None
+            self.is_offline_mock = False
             return False, f"Không thể mở cổng {port}: {e}"
 
     def disconnect(self):
         """Đóng kết nối serial an toàn."""
+        self.is_offline_mock = False
         if self.ser:
             try:
                 if self.ser.is_open:
@@ -130,6 +143,9 @@ class LogicAnalyzerClient:
         if not self.is_connected:
             return False, "Chưa kết nối cổng serial!"
 
+        if self.is_offline_mock:
+            return True, "v1.0.0-offline"
+
         try:
             # Lệnh PING 5B: [0xA5, 0x03, 0x00, 0x00, 0xA6]
             # Checksum = 0xA5 ^ 0x03 ^ 0x00 ^ 0x00 = 0xA6
@@ -159,12 +175,19 @@ class LogicAnalyzerClient:
         except Exception as e:
             return False, f"Lỗi ngoại lệ khi PING: {e}"
 
+    def send_ping(self) -> Tuple[bool, str]:
+        """Bí danh chuẩn thương mại cho ping()."""
+        return self.ping()
+
     def abort(self) -> Tuple[bool, str]:
         """
         Gửi lệnh CMD_ABORT (0x02) dừng khẩn cấp capture và reset FSM về IDLE.
         """
         if not self.is_connected:
             return False, "Chưa kết nối cổng serial!"
+
+        if self.is_offline_mock:
+            return True, "Đã hủy chế độ Offline Mock an toàn."
 
         try:
             # Lệnh ABORT 5B: [0xA5, 0x02, 0x00, 0x00, 0xA7]
@@ -180,6 +203,11 @@ class LogicAnalyzerClient:
         except Exception as e:
             return False, f"Lỗi khi gửi ABORT: {e}"
 
+    def send_abort(self) -> bool:
+        """Bí danh chuẩn thương mại cho abort() trả về boolean."""
+        ok, _ = self.abort()
+        return ok
+
     def start_capture(
         self,
         rate_idx: int = 3,
@@ -189,25 +217,7 @@ class LogicAnalyzerClient:
     ) -> Dict[str, Any]:
         """
         Gửi lệnh CMD_START và nhận trọn vẹn gói Data Frame 32.776 Bytes theo protocol.md.
-
-        :param rate_idx: Chỉ số tần số (0: 6MHz .. 8: 10kHz)
-        :param trig_ch: Kênh trigger (0 .. 7)
-        :param trig_mode: Kiểu trigger (0: Free-run, 1: Rising, 2: Falling)
-        :param progress_callback: Hàm callback theo dõi tiến trình nhận byte
-        :return: Dict chứa kết quả capture:
-                 {
-                     "success": bool,
-                     "error": str,
-                     "status": int,
-                     "status_name": str,
-                     "trig_offset": int,
-                     "sample_count": int,
-                     "sample_rate": float,
-                     "payload": np.ndarray (shape: (32768,), dtype: uint8),
-                     "channels": List[np.ndarray], # 8 mảng (shape: (32768,), 0 hoặc 1)
-                     "elapsed_s": float,
-                     "checksum_ok": bool
-                 }
+        Hỗ trợ cả kết nối thực tế qua serial và chế độ giả lập Offline Mock.
         """
         if not self.is_connected:
             return {"success": False, "error": "Chưa kết nối cổng serial!"}
@@ -220,6 +230,14 @@ class LogicAnalyzerClient:
             return {"success": False, "error": f"Trigger Mode không hợp lệ: {trig_mode} (phải từ 0 đến 2)"}
 
         sample_rate = self.RATE_TABLE[rate_idx]["freq"]
+
+        # 0. Nếu đang ở chế độ Offline Mock: đọc tệp mẫu có sẵn
+        if self.is_offline_mock:
+            bin_path = os.path.join(os.path.dirname(__file__), "..", "tests", "sample_data_1mhz.bin")
+            res = self.load_offline_file(bin_path)
+            if res.get("success"):
+                res["sample_rate"] = float(sample_rate)
+            return res
 
         # 1. Tính toán thời gian chờ an toàn (protocol.md mục 4.3):
         # T_gui-timeout = 42598 / f_s + 3.5 s
@@ -337,6 +355,26 @@ class LogicAnalyzerClient:
             "elapsed_s": elapsed_s,
             "checksum_ok": checksum_ok
         }
+
+    def send_start(
+        self,
+        rate_idx: int = 3,
+        trig_ch: int = 0,
+        trig_mode: int = 0
+    ) -> Tuple[int, int, int, np.ndarray, bool]:
+        """
+        Bí danh chuẩn thương mại trả về tuple (status, trig_offset, sample_count, np_payload, checksum_ok).
+        """
+        res = self.start_capture(rate_idx, trig_ch, trig_mode)
+        if not res.get("success", False):
+            return (0xFF, 0, 0, np.array([], dtype=np.uint8), False)
+        return (
+            res["status"],
+            res["trig_offset"],
+            res["sample_count"],
+            res["payload"],
+            res["checksum_ok"]
+        )
 
     def load_offline_file(self, filepath: str) -> Dict[str, Any]:
         """
