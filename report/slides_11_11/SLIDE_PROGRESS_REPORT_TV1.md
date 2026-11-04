@@ -20,6 +20,7 @@
 | **DEC-02** | Hình thức minh chứng | Ảnh Terminal HIL Test + Sơ đồ khối | Video demo hoặc live code | Thầy yêu cầu slide ngắn; ảnh terminal test hiển thị số liệu khách quan, cô đọng nhất. |
 | **DEC-03** | Khung thời lượng | 4 Slides (~50s/slide) | 3 slides hoặc 5 slides | Cân bằng hoàn hảo giữa chiều sâu kỹ thuật và kiểm soát thời gian không bị lố 5 phút. |
 | **DEC-04** | Cấu trúc câu chuyện | Engineering Proof & Vertical Slice | Problem-Solver Narrative | Logic kỹ sư kinh điển: Mục tiêu $\rightarrow$ Kiến trúc $\rightarrow$ Số liệu đo thật $\rightarrow$ Kế hoạch. |
+| **DEC-05** | Bố cục sơ đồ | Đa tầng (Top-to-Bottom / 2-Tier) | Hàng ngang dài (`flowchart LR`) | Tránh hiện tượng sơ đồ bị co nhỏ, tối ưu tỷ lệ khung hình 16:9 dễ đọc trên slide. |
 
 ---
 
@@ -40,23 +41,32 @@ Tổng thời gian: ~3 phút 30 giây (để dư 1 phút 30 giây trả lời c�
 
 #### Bố cục hiển thị Slide (Visual Layout):
 * **Tiêu đề:** THIẾT KẾ PHẦN CỨNG & BỘ THU THẬP TÍN HIỆU 8 KÊNH 6 MHz
-* **Sơ đồ Khối Clock Tree & Luồng DMA phần cứng (Mermaid Diagram):**
+* **Sơ đồ Khối Clock Tree & Luồng DMA phần cứng (Mermaid Diagram — Tỷ lệ cân đối):**
   ```mermaid
-  flowchart LR
-      HSE["HSE (25 MHz)"] --> PLL["Main PLL (M=25, N=336, P=4, Q=7)"]
-      PLL --> SYSCLK["SYSCLK = 84 MHz"]
-      PLL --> USBCLK["USB OTG FS = 48 MHz"]
-      
-      SYSCLK --> TIM1["TIM1 Update Event (UDE=1)"]
-      TIM1 --> DMA2["DMA2 Stream 5 (Ch6)"]
-      
-      PINS["8 Kênh Đo (PA0 - PA7)"] --> IDR["Thanh ghi GPIOA->IDR"]
-      DMA2 -.->|"Bus AHB1 (0 ns Skew)"| IDR
-      IDR -->|"Đọc 8-bit song song"| BUF["la_capture_buffer (32 KB RAM)"]
-      
-      USBCLK --> USB["USB-CDC Virtual COM"]
-      BUF -->|"Gói tin 32.776 Bytes"| USB
-      USB --> PC["Host PC (Python)"]
+  flowchart TD
+      subgraph CLOCK["1. Hệ Thống Xung Nhịp (Clock Tree 84 MHz)"]
+          direction LR
+          HSE["HSE 25 MHz"] --> PLL["Main PLL"]
+          PLL --> SYSCLK["SYSCLK = 84 MHz (Timer TIM1)"]
+          PLL --> USBCLK["USB Clock = 48 MHz"]
+      end
+
+      subgraph SAMPLING["2. Thu Thập Dữ Liệu Song Song (Bus AHB1)"]
+          direction LR
+          PINS["8 Kênh Đo (PA0 - PA7)"] --> IDR["Thanh ghi GPIOA->IDR"]
+          TIM1["TIM1 Update (UDE=1)"] -->|"Trigger"| DMA2["DMA2 Stream 5 (Ch6)"]
+          DMA2 -.->|"0 ns Skew"| IDR
+          IDR -->|"Đọc 8-bit song song"| BUF["la_capture_buffer (32 KB SRAM)"]
+      end
+
+      subgraph OUTPUT["3. Truyền Dữ Liệu Lên Máy Tính"]
+          direction LR
+          BUF -->|"Gói tin 32.776B"| USB["USB-CDC 12 Mbps"]
+          USB --> PC["Host PC (Python GUI)"]
+      end
+
+      SYSCLK --> SAMPLING
+      USBCLK --> OUTPUT
   ```
 * **Thông số kỹ thuật cốt lõi:**
   * **Số kênh đo:** 8 kênh đồng bộ trên Port A (`PA0 – PA7`).
@@ -75,24 +85,25 @@ Tổng thời gian: ~3 phút 30 giây (để dư 1 phút 30 giây trả lời c�
 
 #### Bố cục hiển thị Slide (Visual Layout):
 * **Tiêu đề:** KIẾN TRÚC MÁY TRẠNG THÁI (FSM) & ĐỒNG BỘ TRIGGER THỜI GIAN THỰC
-* **Sơ đồ khối FSM trung tâm (Mermaid Diagram):**
+* **Sơ đồ khối FSM trung tâm (Mermaid Diagram — Bố cục 2 Hàng Cân Đối):**
   ```mermaid
-  flowchart LR
-      IDLE["IDLE (Chờ lệnh PC)"]
-      ARMED["ARMED (Bật TIM1 & DMA2)"]
-      PRE["PRE_SAMPLING (Khóa EXTI)"]
-      WAIT["WAIT_TRIGGER (Mở EXTI0..7)"]
-      POST["POST_SAMPLING (TIM2 One-Pulse)"]
-      TX["TRANSFERRING (Gửi USB 32KB)"]
+  flowchart TD
+      subgraph ROW1["GIAI ĐOẠN 1: Chuẩn Bị & Chờ Kích Hoạt"]
+          direction LR
+          IDLE["1. IDLE (Chờ lệnh)"] -->|"CMD_START (0x01)"| ARMED["2. ARMED (Bật TIM1/DMA)"]
+          ARMED --> PRE["3. PRE_SAMPLING (Khóa EXTI)"]
+          PRE -->|"Cờ HTIF5 (>= 20% Pre-trig)"| WAIT["4. WAIT_TRIGGER (Mở EXTI)"]
+      end
 
-      IDLE -->|"CMD_START (0x01)"| ARMED
-      ARMED -->|"Kích hoạt DMA"| PRE
-      PRE -->|"Cờ HTIF5 (>= 20% Pre-trigger)"| WAIT
+      subgraph ROW2["GIAI ĐOẠN 2: Bắt Sự Kiện & Xuất Dữ Liệu"]
+          direction LR
+          POST["5. POST_SAMPLING (TIM2 One-Pulse)"] -->|"Đủ 80% Post-trigger"| TX["6. TRANSFERRING (Gửi USB 32KB)"]
+      end
+
+      WAIT -->|"Ngắt EXTI (Bắt cạnh xung)"| POST
       PRE -->|"Chế độ Free-Run"| POST
-      WAIT -->|"Ngắt EXTI (Cạnh tín hiệu)"| POST
       WAIT -->|"Timeout SysTick (2.0s)"| TX
-      POST -->|"Ngắt TIM2 (Đủ 26.214 mẫu)"| TX
-      TX -->|"Hoàn tất truyền USB"| IDLE
+      TX -->|"Hoàn tất truyền dữ liệu"| IDLE
       WAIT -.->|"CMD_ABORT (0x02)"| IDLE
   ```
 * **3 Điểm sáng kỹ thuật then chốt:**
@@ -111,27 +122,29 @@ Tổng thời gian: ~3 phút 30 giây (để dư 1 phút 30 giây trả lời c�
 
 #### Bố cục hiển thị Slide (Visual Layout):
 * **Tiêu đề:** KẾT QUẢ ĐO KIỂM THỰC NGHIỆM TRÊN PHẦN CỨNG (HARDWARE-IN-THE-LOOP)
-* **Mô hình Thử nghiệm HIL Loopback (Mermaid Diagram):**
+* **Mô hình Thử nghiệm HIL Loopback (Mermaid Diagram — Tỷ lệ cân đối):**
   ```mermaid
-  flowchart LR
-      subgraph STM32["Kit STM32F401 Black Pill"]
-          TX_GEN["Kênh phát Test: USART1_TX (PA9)"]
-          CH0["Kênh đo 0: PA0 (CH0 RX)"]
-          CORE["LA Core Engine (TIM1 + DMA2 + 32KB RAM)"]
-          USB_DEV["USB-CDC Endpoint"]
-          
-          TX_GEN ===|"Dây cắm Jumper ngoài (PA9 nối PA0)"| CH0
-          CH0 --> CORE
-          CORE --> USB_DEV
+  flowchart TD
+      subgraph PC["MÁY TÍNH HOST PC (Python Test Suite)"]
+          direction LR
+          CMD["Gửi Lệnh: CMD_START (1 MHz)"]
+          VERIFY["Xác Thực: Giải mã UART & Đo Jitter (-1 mẫu)"]
       end
 
-      subgraph PC["Máy tính Host PC"]
-          TEST_SUITE["Bộ Test Tự Động: verify_step*.py"]
-          TEST_SUITE -->|"1. Gửi lệnh CMD_START (1MHz, Falling PA0)"| COM["Cổng Serial: /dev/ttyACM0"]
-          COM --> USB_DEV
-          USB_DEV -->|"2. Trả gói dữ liệu 32.776 Bytes"| COM
-          COM -->|"3. Giải mã UART & Đo Jitter (-1 mẫu)"| TEST_SUITE
+      subgraph USB_LINK["GIAO TIẾP USB-CDC VIRTUAL COM"]
+          VCP["Cáp USB Type-C: /dev/ttyACM0 (12 Mbps)"]
       end
+
+      subgraph STM32["KIT STM32F401 WEACT BLACK PILL"]
+          direction LR
+          TX_PIN["Kênh phát TX: PA9 (USART1)"] ===|"Dây Jumper Nối Vòng Ngoài"| RX_PIN["Kênh đo: PA0 (CH0 RX)"]
+          RX_PIN --> CORE["Core Engine: TIM1 + DMA2 (32 KB Buffer)"]
+      end
+
+      CMD -->|"1. Lệnh 5 Bytes"| VCP
+      VCP -->|"Kích hoạt capture"| CORE
+      CORE -->|"2. Khung dữ liệu 32.776 Bytes"| VCP
+      VCP -->|"Tính Checksum & Giải mã"| VERIFY
   ```
 * **Khung hiển thị kết quả 4 bài test tự động (Kèm ảnh chụp màn hình Terminal):**
   * **Test 1 — Free-Run (1 MHz):** Đọc và truyền trọn vẹn $32.776\text{ Bytes}$ qua USB-CDC, Header chuẩn Little-Endian, Checksum XOR khớp $100\%$.
@@ -153,25 +166,29 @@ Tổng thời gian: ~3 phút 30 giây (để dư 1 phút 30 giây trả lời c�
 
 #### Bố cục hiển thị Slide (Visual Layout):
 * **Tiêu đề:** TỔNG KẾT TIẾN ĐỘ FIRMWARE & KẾ HOẠCH TÍCH HỢP HỆ THỐNG
-* **Sơ đồ Tích hợp Toàn diện 3 Phân hệ (Mermaid Diagram):**
+* **Sơ đồ Tích hợp Toàn diện 3 Phân hệ (Mermaid Diagram — Tỷ lệ chiều dọc tự nhiên):**
   ```mermaid
-  flowchart LR
-      subgraph TV2["TV2: Phần cứng & Bảo vệ"]
+  flowchart TD
+      subgraph TV2["TẦNG 1: TV2 - Phần Cứng & Mạch Bảo Vệ"]
+          direction LR
           PROBE["8 Đầu đo Probe"] --> PROT["Mạch Bảo Vệ (1kΩ // 22pF + BAT54S)"]
           PROT --> BUF_IC["IC Đệm Bus 74LVC245"]
       end
 
-      subgraph TV1["TV1: Firmware STM32F401 (Đã hoàn thành 100%)"]
-          BUF_IC --> MCU_PINS["PA0 - PA7 (Port A)"]
-          MCU_PINS --> FW_CORE["DMA2 Circular + TIM1/TIM2 Cascade"]
-          FW_CORE --> USB_CDC["USB-CDC Full-Speed 12 Mbps"]
+      subgraph TV1["TẦNG 2: TV1 - Firmware STM32F401 (Hoàn thành 100%)"]
+          direction LR
+          MCU_PINS["PA0 - PA7 (Port A)"] --> FW_CORE["DMA2 Circular + TIM1/TIM2 Cascade"]
+          FW_CORE --> USB_CDC["USB-CDC Virtual COM 12 Mbps"]
       end
 
-      subgraph TV3["TV3: Phần mềm PC & Giao diện"]
-          USB_CDC --> PROTOCOL["Hợp đồng protocol.md v1.0.0"]
-          PROTOCOL --> GUI["PyQt5 + pyqtgraph (Hiển thị 8 Kênh)"]
+      subgraph TV3["TẦNG 3: TV3 - Phần Mềm Giao Diện & Giải Mã"]
+          direction LR
+          PROTOCOL["Hợp đồng protocol.md v1.0.0"] --> GUI["PyQt5 + pyqtgraph (Hiển thị 8 Kênh)"]
           PROTOCOL --> DECODER["Bộ giải mã: UART, SPI, I2C"]
       end
+
+      BUF_IC -->|"Mức logic 3.3V an toàn"| MCU_PINS
+      USB_CDC -->|"Khung nhị phân 32.776B"| PROTOCOL
   ```
 * **Cột trái — Bảng tiến độ phân hệ Firmware (TV1 đạt $100\%$):**
   * **Bước 1 (Free-Run):** TIM1 + DMA2_Stream5 32KB + USB-CDC. *(Đã kiểm chứng)*
