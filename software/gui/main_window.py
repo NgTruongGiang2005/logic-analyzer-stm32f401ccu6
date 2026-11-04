@@ -469,6 +469,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.table_frames.horizontalHeader().setStretchLastSection(True)
         self.table_frames.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         self.table_frames.setAlternatingRowColors(True)
+        self.table_frames.cellClicked.connect(self._on_frame_clicked)
         table_layout.addWidget(self.table_frames)
 
         layout.addWidget(table_box, 3)
@@ -698,6 +699,16 @@ class MainWindow(QtWidgets.QMainWindow):
             sample_rate = self.current_data["sample_rate"]
             self.plot_widget.setXRange(0, sample_count / sample_rate, padding=0.01)
 
+    def _on_frame_clicked(self, row: int, col: int):
+        """Khi click vào 1 dòng trong bảng frame, tự động phóng to (zoom) vào vị trí ký tự đó trên đồ thị."""
+        if hasattr(self, "current_frames") and 0 <= row < len(self.current_frames):
+            f = self.current_frames[row]
+            t_start = f["start_time_s"]
+            t_stop = f["stop_time_s"]
+            duration = max(t_stop - t_start, 0.0001)
+            # Thêm lề 35% hai bên để quan sát rõ cả Start bit và Stop bit
+            self.plot_widget.setXRange(max(0, t_start - duration * 0.35), t_stop + duration * 0.35, padding=0)
+
     def _on_decode_uart(self):
         """Thực thi giải mã UART trên kênh được chỉ định."""
         if not self.current_data:
@@ -706,20 +717,62 @@ class MainWindow(QtWidgets.QMainWindow):
         ch_idx = self.cb_decode_ch.currentData()
         baudrate = self.cb_decode_baud.currentData()
         sample_rate = self.current_data["sample_rate"]
-        samples = self.current_data["channels"][ch_idx].tolist()
+        ch_arr = self.current_data["channels"][ch_idx]
+        samples = ch_arr.tolist()
 
         # Cấu hình decoder
         self.decoder.sample_rate = sample_rate
         self.decoder.baudrate = baudrate
 
-        # Bắt đầu giải mã từ trước điểm trigger một chút để không bỏ sót ký tự
-        trig_offset = self.current_data.get("trig_offset", 0)
-        start_idx = max(0, trig_offset - 50)
+        # Bắt đầu giải mã từ mẫu 0 để quét trọn vẹn toàn bộ 32KB buffer
+        decoded_text, frames = self.decoder.decode(samples, start_idx=0)
+        self.current_frames = frames
 
-        decoded_text, frames = self.decoder.decode(samples, start_idx=start_idx)
+        # 1. Hiển thị chuỗi văn bản ASCII hoặc thông báo chẩn đoán thông minh
+        if decoded_text:
+            self.txt_decoded.setStyleSheet("color: #00e5ff; font-size: 14px; font-weight: bold;")
+            self.txt_decoded.setPlainText(decoded_text)
+        else:
+            num_ones = int(np.count_nonzero(ch_arr == 1))
+            num_zeros = len(ch_arr) - num_ones
+            transitions = int(np.count_nonzero(np.diff(ch_arr) != 0))
 
-        # 1. Hiển thị chuỗi văn bản ASCII
-        self.txt_decoded.setPlainText(decoded_text if decoded_text else "[Không phát hiện frame UART hợp lệ]")
+            self.txt_decoded.setStyleSheet("color: #ffb74d; font-size: 13px; font-family: monospace;")
+            if transitions == 0 and num_ones == 0:
+                diag_msg = (
+                    f"⚠️ KÊNH D{ch_idx} (PA{ch_idx}) ĐANG Ở MỨC LOW (0V) LIÊN TỤC (0 LẦN CHUYỂN MỨC)\n\n"
+                    f"🔍 NGUYÊN NHÂN:\n"
+                    f"• Chân PA{ch_idx} đang thả nổi với trở kéo xuống nội (Pull-down 0V).\n"
+                    f"• Chưa có dây dẫn kết nối nguồn phát tín hiệu vào chân PA{ch_idx}.\n\n"
+                    f"🛠️ HƯỚNG DẪN KHẮC PHỤC (Loopback Self-Test):\n"
+                    f"1. Hãy cắm 1 sợi dây Jumper nối từ chân PA9 (USART1_TX phát test) sang chân PA0 (Kênh D0).\n"
+                    f"2. Chọn Kênh Trigger: 'CH0' | Kiểu Trigger: 'Cạnh xuống (Falling Edge)' hoặc 'Free-run'.\n"
+                    f"3. Bấm '▶ Start Capture' một lần nữa để hiển thị chuỗi 'TEST_LA_2026\\r\\n'!"
+                )
+            elif transitions == 0 and num_zeros == 0:
+                diag_msg = (
+                    f"⚠️ KÊNH D{ch_idx} (PA{ch_idx}) ĐANG Ở MỨC HIGH (3.3V) LIÊN TỤC (TÍN HIỆU NGHỈ)\n\n"
+                    f"🔍 NGUYÊN NHÂN:\n"
+                    f"• Đường truyền UART đang ở trạng thái nghỉ (IDLE) nhưng không có ký tự nào được phát.\n\n"
+                    f"🛠️ HƯỚNG DẪN KHẮC PHỤC:\n"
+                    f"1. Kiểm tra nguồn phát UART (hoặc MCU) có đang thực sự truyền dữ liệu không.\n"
+                    f"2. Đổi Kiểu Trigger sang 'Cạnh xuống (Falling Edge)' để đợi khi có ký tự mới bắt đầu ghi."
+                )
+            elif transitions > 0:
+                samples_per_bit = sample_rate / baudrate
+                diag_msg = (
+                    f"⚠️ PHÁT HIỆN {transitions:,} LẦN CHUYỂN MỨC TRÊN D{ch_idx} NHƯNG KHÔNG GIẢI MÃ ĐƯỢC UART\n\n"
+                    f"🔍 THÔNG SỐ HIỆN TẠI:\n"
+                    f"• Tốc độ Baud: {baudrate:,} bps | Tần số lấy mẫu: {sample_rate/1e6:.2f} MHz ({samples_per_bit:.1f} mẫu/bit)\n\n"
+                    f"🛠️ HƯỚNG DẪN KHẮC PHỤC:\n"
+                    f"1. Kiểm tra Tốc độ Baud ({baudrate} bps) có khớp với nguồn phát không (Ví dụ: 115200 bps).\n"
+                    f"2. Đảm bảo tần số lấy mẫu đủ lớn (khuyến nghị ≥ 1 MHz cho 115.200 bps).\n"
+                    f"3. Kiểm tra chọn đúng kênh nhận tín hiệu ({self.cb_decode_ch.currentText()})."
+                )
+            else:
+                diag_msg = "[Không phát hiện frame UART hợp lệ]"
+
+            self.txt_decoded.setPlainText(diag_msg)
 
         # 2. Điền dữ liệu vào bảng danh sách khung
         self.table_frames.setRowCount(len(frames))
