@@ -40,13 +40,28 @@ Tổng thời gian: ~3 phút 30 giây (để dư 1 phút 30 giây trả lời c�
 
 #### Bố cục hiển thị Slide (Visual Layout):
 * **Tiêu đề:** THIẾT KẾ PHẦN CỨNG & BỘ THU THẬP TÍN HIỆU 8 KÊNH 6 MHz
-* **Cột trái — Thông số kỹ thuật cốt lõi:**
+* **Sơ đồ Khối Clock Tree & Luồng DMA phần cứng (Mermaid Diagram):**
+  ```mermaid
+  flowchart LR
+      HSE["HSE (25 MHz)"] --> PLL["Main PLL (M=25, N=336, P=4, Q=7)"]
+      PLL --> SYSCLK["SYSCLK = 84 MHz"]
+      PLL --> USBCLK["USB OTG FS = 48 MHz"]
+      
+      SYSCLK --> TIM1["TIM1 Update Event (UDE=1)"]
+      TIM1 --> DMA2["DMA2 Stream 5 (Ch6)"]
+      
+      PINS["8 Kênh Đo (PA0 - PA7)"] --> IDR["Thanh ghi GPIOA->IDR"]
+      DMA2 -.->|"Bus AHB1 (0 ns Skew)"| IDR
+      IDR -->|"Đọc 8-bit song song"| BUF["la_capture_buffer (32 KB RAM)"]
+      
+      USBCLK --> USB["USB-CDC Virtual COM"]
+      BUF -->|"Gói tin 32.776 Bytes"| USB
+      USB --> PC["Host PC (Python)"]
+  ```
+* **Thông số kỹ thuật cốt lõi:**
   * **Số kênh đo:** 8 kênh đồng bộ trên Port A (`PA0 – PA7`).
   * **Tần số lấy mẫu ($f_s$):** 9 mức từ $10\text{ kHz}$ đến $6\text{ MHz}$ (sai số chu kỳ $0\%$).
   * **Bộ đệm dữ liệu:** Mảng tĩnh `32.768 Bytes` (chiếm đúng $50\%$ trong 64 KB SRAM của chip STM32F401CCU6).
-* **Cột phải — Cấu hình Clock Tree & Luồng DMA phần cứng:**
-  * Thạch anh ngoài $\text{HSE} = 25\text{ MHz} \xrightarrow{\text{PLL}} \text{SYSCLK} = 84\text{ MHz}$ & $\text{USB} = 48\text{ MHz}$.
-  * `TIM1_UP` kích hoạt `DMA2_Stream5 Channel 6` đọc trực tiếp thanh ghi `GPIOA->IDR`.
   * **Độ lệch kênh (Skew):** Bằng $\mathbf{0\text{ ns}}$ tại thời điểm chốt mẫu do DMA đọc song song 8 bit qua bus AHB1 trong cùng 1 chu kỳ xung nhịp. Giải phóng $100\%$ CPU khi capture.
 
 #### Lời thoại thuyết trình (Speaker Notes — ~50 giây, 105 từ):
@@ -96,6 +111,28 @@ Tổng thời gian: ~3 phút 30 giây (để dư 1 phút 30 giây trả lời c�
 
 #### Bố cục hiển thị Slide (Visual Layout):
 * **Tiêu đề:** KẾT QUẢ ĐO KIỂM THỰC NGHIỆM TRÊN PHẦN CỨNG (HARDWARE-IN-THE-LOOP)
+* **Mô hình Thử nghiệm HIL Loopback (Mermaid Diagram):**
+  ```mermaid
+  flowchart LR
+      subgraph STM32["Kit STM32F401 Black Pill"]
+          TX_GEN["Kênh phát Test: USART1_TX (PA9)"]
+          CH0["Kênh đo 0: PA0 (CH0 RX)"]
+          CORE["LA Core Engine (TIM1 + DMA2 + 32KB RAM)"]
+          USB_DEV["USB-CDC Endpoint"]
+          
+          TX_GEN ===|"Dây cắm Jumper ngoài (PA9 nối PA0)"| CH0
+          CH0 --> CORE
+          CORE --> USB_DEV
+      end
+
+      subgraph PC["Máy tính Host PC"]
+          TEST_SUITE["Bộ Test Tự Động: verify_step*.py"]
+          TEST_SUITE -->|"1. Gửi lệnh CMD_START (1MHz, Falling PA0)"| COM["Cổng Serial: /dev/ttyACM0"]
+          COM --> USB_DEV
+          USB_DEV -->|"2. Trả gói dữ liệu 32.776 Bytes"| COM
+          COM -->|"3. Giải mã UART & Đo Jitter (-1 mẫu)"| TEST_SUITE
+      end
+  ```
 * **Khung hiển thị kết quả 4 bài test tự động (Kèm ảnh chụp màn hình Terminal):**
   * **Test 1 — Free-Run (1 MHz):** Đọc và truyền trọn vẹn $32.776\text{ Bytes}$ qua USB-CDC, Header chuẩn Little-Endian, Checksum XOR khớp $100\%$.
   * **Test 2 — Loopback Self-Test:** PA9 phát UART 115.200 bps $\rightarrow$ Kênh PA0 thu thập và giải mã phần mềm chuẩn xác chuỗi `'TEST_LA_2026\r\n'` (0 bit error).
@@ -116,6 +153,26 @@ Tổng thời gian: ~3 phút 30 giây (để dư 1 phút 30 giây trả lời c�
 
 #### Bố cục hiển thị Slide (Visual Layout):
 * **Tiêu đề:** TỔNG KẾT TIẾN ĐỘ FIRMWARE & KẾ HOẠCH TÍCH HỢP HỆ THỐNG
+* **Sơ đồ Tích hợp Toàn diện 3 Phân hệ (Mermaid Diagram):**
+  ```mermaid
+  flowchart LR
+      subgraph TV2["TV2: Phần cứng & Bảo vệ"]
+          PROBE["8 Đầu đo Probe"] --> PROT["Mạch Bảo Vệ (1kΩ // 22pF + BAT54S)"]
+          PROT --> BUF_IC["IC Đệm Bus 74LVC245"]
+      end
+
+      subgraph TV1["TV1: Firmware STM32F401 (Đã hoàn thành 100%)"]
+          BUF_IC --> MCU_PINS["PA0 - PA7 (Port A)"]
+          MCU_PINS --> FW_CORE["DMA2 Circular + TIM1/TIM2 Cascade"]
+          FW_CORE --> USB_CDC["USB-CDC Full-Speed 12 Mbps"]
+      end
+
+      subgraph TV3["TV3: Phần mềm PC & Giao diện"]
+          USB_CDC --> PROTOCOL["Hợp đồng protocol.md v1.0.0"]
+          PROTOCOL --> GUI["PyQt5 + pyqtgraph (Hiển thị 8 Kênh)"]
+          PROTOCOL --> DECODER["Bộ giải mã: UART, SPI, I2C"]
+      end
+  ```
 * **Cột trái — Bảng tiến độ phân hệ Firmware (TV1 đạt $100\%$):**
   * **Bước 1 (Free-Run):** TIM1 + DMA2_Stream5 32KB + USB-CDC. *(Đã kiểm chứng)*
   * **Bước 2 (Loopback):** Tự phát & giải mã UART 115.200 bps PA9 $\rightarrow$ PA0. *(Đã kiểm chứng)*
