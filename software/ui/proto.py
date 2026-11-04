@@ -77,14 +77,46 @@ class MainWindow(QtWidgets.QMainWindow):
             QPushButton#startButton {{ border-radius: {px(25)}px; min-width: {px(50)}px;
                                        min-height: {px(50)}px; max-width: {px(50)}px; max-height: {px(50)}px; padding: 0px; }}
         """)
-        if not P["menu_dark"]:
-            self.setStyleSheet(self.styleSheet() +
-                               "QMenuBar { background-color: #ffffff; color: #1b1b1c; }")
-        mb = self.menuBar()
+
+        # Top Bar gồm Title Bar + Menu Bar (Tổng chiều cao đúng 76 px theo ref_comp2_top_menu)
+        top_container = QtWidgets.QWidget()
+        top_container.setFixedHeight(76)
+        top_container.setStyleSheet("background-color: #ffffff; color: #1b1b1c; border-bottom: 1px solid #57575e;")
+        top_v = QtWidgets.QVBoxLayout(top_container)
+        top_v.setContentsMargins(10, 4, 10, 4)
+        top_v.setSpacing(0)
+
+        # Hàng 1: Title bar
+        row_title = QtWidgets.QHBoxLayout()
+        row_title.setContentsMargins(0, 0, 0, 0)
+        lbl_icon = QtWidgets.QLabel("⚙")
+        lbl_icon.setStyleSheet("font-size: 14px; color: #000000; border: none;")
+        lbl_title = QtWidgets.QLabel("<b>Logic 2 [Logic Pro 8 - Demo] [Session 1]</b>")
+        lbl_title.setStyleSheet("font-size: 12px; color: #1b1b1c; border: none; font-family: 'Segoe UI';")
+        row_title.addWidget(lbl_icon)
+        row_title.addSpacing(6)
+        row_title.addWidget(lbl_title)
+        row_title.addStretch(1)
+
+        for btn_txt in ("—", "□", "✕"):
+            btn_w = QtWidgets.QLabel(btn_txt)
+            btn_w.setStyleSheet("font-size: 13px; color: #1b1b1c; padding: 0 8px; border: none;")
+            row_title.addWidget(btn_w)
+        top_v.addLayout(row_title)
+
+        # Hàng 2: Menu bar
+        row_menu = QtWidgets.QHBoxLayout()
+        row_menu.setContentsMargins(0, 2, 0, 0)
+        row_menu.setSpacing(16)
         for m in ("File", "Edit", "Capture", "Measure", "View", "Help"):
-            mb.addMenu(m)
-        if not P["menu_dark"]:
-            mb.setStyleSheet("QMenuBar { background-color: #ffffff; color: #1b1b1c; }")
+            lbl_m = QtWidgets.QLabel(m)
+            lbl_m.setStyleSheet("font-size: 13px; color: #1b1b1c; border: none; font-family: 'Segoe UI';")
+            row_menu.addWidget(lbl_m)
+        row_menu.addStretch(1)
+        top_v.addLayout(row_menu)
+
+        self.setMenuWidget(top_container)
+
         central = QtWidgets.QWidget()
         self.setCentralWidget(central)
         outer = QtWidgets.QVBoxLayout(central)
@@ -106,7 +138,7 @@ class MainWindow(QtWidgets.QMainWindow):
         row_h = px(P["row_h"])
         axis_h = px(P["axis_h"])
         if P.get("stretch"):
-            avail = H - self.menuBar().sizeHint().height() - px(P["bottom_h"]) - axis_h
+            avail = H - 76 - px(P["bottom_h"]) - axis_h
             row_h = int(avail / (7 + P["dec_scale"]))
         heights = [int(row_h * P["dec_scale"])] + [row_h] * 7
         total = sum(heights)
@@ -278,16 +310,88 @@ class MainWindow(QtWidgets.QMainWindow):
         P = self.P
         w = QtWidgets.QWidget()
         w.setFixedWidth(px(P["rail_w"]))
+        w.setStyleSheet(f"QWidget {{ background-color: {T.BG_MAIN}; border-left: 1px solid {T.GRID}; }}")
         v = QtWidgets.QVBoxLayout(w)
-        v.setContentsMargins(0, px(8), 0, px(8))
-        v.setSpacing(px(14))
-        b = QtWidgets.QPushButton("▶"); b.setObjectName("startButton")
+        v.setContentsMargins(0, 0, 0, 0)
+        v.setSpacing(0)
+
+        # 1. Khoảng cách đỉnh tới nút Start (Y = 31 px)
+        v.addSpacing(px(22))
+
+        # 2. Nút Start tròn màu xanh lá (Y = 31..99 px)
+        b = QtWidgets.QPushButton("▶")
+        b.setObjectName("startButton")
+        btn_dia = px(49)
+        b.setFixedSize(btn_dia, btn_dia)
+        b.setStyleSheet(f"""
+            QPushButton#startButton {{
+                background-color: {T.ACCENT_START};
+                border: none;
+                border-radius: {btn_dia // 2}px;
+                color: #ffffff;
+                font-size: {px(18)}px;
+                padding-left: {px(2)}px;
+            }}
+        """)
         v.addWidget(b, 0, QtCore.Qt.AlignHCenter)
-        for ch in ("▭", "1F", "✎", "▦"):
-            bt = QtWidgets.QToolButton(); bt.setText(ch)
-            bt.setStyleSheet(f"QToolButton{{border:none;color:{T.TEXT_DIM};font-size:{px(20)}px;}}")
-            v.addWidget(bt, 0, QtCore.Qt.AlignHCenter)
+
+        # 3. Khoảng cách tới icon Thiết bị (Y = 160 px)
+        v.addSpacing(px(34))
+        btn_dev = QtWidgets.QToolButton()
+        btn_dev.setText("▭")
+        btn_dev.setStyleSheet(f"QToolButton {{ border: none; color: {T.TEXT_DIM}; font-size: {px(24)}px; }}")
+        v.addWidget(btn_dev, 0, QtCore.Qt.AlignHCenter)
+
+        # 4. Khoảng cách tới mục Active Analyzers (Y = 220 px)
+        v.addSpacing(px(22))
+        card_active = QtWidgets.QFrame()
+        card_active.setFixedHeight(px(64))
+        card_active.setStyleSheet(f"""
+            QFrame {{
+                background-color: {T.BG_SELECT};
+                border-left: {px(2.5)}px solid #ffffff;
+                border-top: none; border-right: none; border-bottom: none;
+            }}
+        """)
+        c_lay = QtWidgets.QVBoxLayout(card_active)
+        c_lay.setContentsMargins(0, 0, 0, 0)
+        btn_ana = QtWidgets.QLabel("1F")
+        btn_ana.setAlignment(QtCore.Qt.AlignCenter)
+        btn_ana.setStyleSheet(f"color: #ffffff; font-weight: bold; font-size: {px(16)}px; border: none; background: transparent;")
+        c_lay.addWidget(btn_ana)
+        v.addWidget(card_active)
+
+        # 5. Khoảng cách tới icon Cursors / Đo đạc (Y = 369 px)
+        v.addSpacing(px(32))
+        btn_ruler = QtWidgets.QToolButton()
+        btn_ruler.setText("📐")
+        btn_ruler.setStyleSheet(f"QToolButton {{ border: none; font-size: {px(18)}px; }}")
+        v.addWidget(btn_ruler, 0, QtCore.Qt.AlignHCenter)
+
+        # 6. Khoảng cách tới icon Bố cục (Y = 476 px)
+        v.addSpacing(px(46))
+        btn_grid = QtWidgets.QToolButton()
+        btn_grid.setText("▦")
+        btn_grid.setStyleSheet(f"QToolButton {{ border: none; color: {T.TEXT_DIM}; font-size: {px(22)}px; }}")
+        v.addWidget(btn_grid, 0, QtCore.Qt.AlignHCenter)
+
+        # Đẩy 2 icon đáy xuống cuối
         v.addStretch(1)
+
+        # 7. Icon phản hồi / Chat (Y = 952 px)
+        btn_chat = QtWidgets.QToolButton()
+        btn_chat.setText("💬")
+        btn_chat.setStyleSheet(f"QToolButton {{ border: none; font-size: {px(18)}px; }}")
+        v.addWidget(btn_chat, 0, QtCore.Qt.AlignHCenter)
+        v.addSpacing(px(32))
+
+        # 8. Icon Menu 3 gạch (Y = 1025 px)
+        btn_menu = QtWidgets.QToolButton()
+        btn_menu.setText("☰")
+        btn_menu.setStyleSheet(f"QToolButton {{ border: none; color: {T.TEXT_DIM}; font-size: {px(22)}px; }}")
+        v.addWidget(btn_menu, 0, QtCore.Qt.AlignHCenter)
+        v.addSpacing(px(14))
+
         return w
 
     # ---- thanh dưới ----------------------------------------------------------

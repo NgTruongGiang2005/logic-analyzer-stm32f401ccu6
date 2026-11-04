@@ -428,40 +428,100 @@ class MainWindow(QtWidgets.QMainWindow):
         rail.setStyleSheet(f"background-color: {T.BG_MAIN}; border-left: 1px solid {T.BORDER};")
 
         v_layout = QtWidgets.QVBoxLayout(rail)
-        v_layout.setContentsMargins(0, 10, 0, 10)
-        v_layout.setSpacing(14)
+        v_layout.setContentsMargins(0, 0, 0, 0)
+        v_layout.setSpacing(0)
 
-        # Nút START tròn to màu xanh lá (Ø 50px)
+        # 1. Khoảng cách đỉnh tới nút Start
+        v_layout.addSpacing(22)
+
+        # 2. Nút Start tròn màu xanh lá (Ø 50px)
         self.btn_rail_start = QtWidgets.QPushButton("▶")
         self.btn_rail_start.setObjectName("startButton")
+        self.btn_rail_start.setFixedSize(50, 50)
         self.btn_rail_start.setToolTip("Bắt đầu lấy mẫu (F5)")
+        self.btn_rail_start.setStyleSheet(f"""
+            QPushButton#startButton {{
+                background-color: {T.ACCENT_START};
+                border: none;
+                border-radius: 25px;
+                color: #ffffff;
+                font-size: 18px;
+                padding-left: 2px;
+            }}
+            QPushButton#startButton:hover {{
+                background-color: #38b457;
+            }}
+        """)
         self.btn_rail_start.clicked.connect(self._on_start_capture)
         v_layout.addWidget(self.btn_rail_start, 0, QtCore.Qt.AlignHCenter)
 
-        # Nút ABORT nhỏ
-        self.btn_rail_abort = QtWidgets.QPushButton("⏹")
-        self.btn_rail_abort.setFixedSize(36, 36)
-        self.btn_rail_abort.setToolTip("Hủy lượt lấy mẫu hiện tại (Esc)")
-        self.btn_rail_abort.setStyleSheet("background-color: #ef4444; border-radius: 18px; color: #ffffff;")
-        self.btn_rail_abort.clicked.connect(self._on_abort)
-        v_layout.addWidget(self.btn_rail_abort, 0, QtCore.Qt.AlignHCenter)
+        # 3. Khoảng cách tới icon Thiết bị
+        v_layout.addSpacing(34)
+        self.btn_rail_dev = QtWidgets.QToolButton()
+        self.btn_rail_dev.setText("▭")
+        self.btn_rail_dev.setToolTip("Thiết bị & Cấu hình Trigger")
+        self.btn_rail_dev.setStyleSheet(f"QToolButton {{ border: none; color: {T.TEXT_DIM}; font-size: 22px; }}")
+        self.btn_rail_dev.clicked.connect(self._toggle_trigger_card)
+        v_layout.addWidget(self.btn_rail_dev, 0, QtCore.Qt.AlignHCenter)
 
-        # Các icon công cụ theo chuẩn Saleae Logic 2
-        tool_icons = [
-            ("▭", "Bật/Tắt Card Trigger & Device Settings", self._toggle_trigger_card),
-            ("1F", "Bộ giải mã & Bảng gói tin", lambda: self.edit_search.setFocus()),
-            ("✎", "Bật/Tắt Cặp thước đo thời gian A & B (C)", self.waveform.toggle_cursors),
-            ("▦", "Xuất báo cáo & Dữ liệu", self._export_image),
-        ]
-        for icon_text, tip, callback in tool_icons:
-            btn = QtWidgets.QToolButton()
-            btn.setText(icon_text)
-            btn.setToolTip(tip)
-            btn.setStyleSheet(f"QToolButton {{ border: none; color: {T.TEXT_DIM}; font-size: 18px; }}")
-            btn.clicked.connect(callback)
-            v_layout.addWidget(btn, 0, QtCore.Qt.AlignHCenter)
+        # 4. Khoảng cách tới mục Active Analyzers
+        v_layout.addSpacing(22)
+        card_active = QtWidgets.QFrame()
+        card_active.setFixedHeight(64)
+        card_active.setStyleSheet(f"""
+            QFrame {{
+                background-color: {T.BG_SELECT};
+                border-left: 3px solid #ffffff;
+                border-top: none; border-right: none; border-bottom: none;
+            }}
+        """)
+        c_lay = QtWidgets.QVBoxLayout(card_active)
+        c_lay.setContentsMargins(0, 0, 0, 0)
+        self.btn_rail_ana = QtWidgets.QLabel("1F")
+        self.btn_rail_ana.setAlignment(QtCore.Qt.AlignCenter)
+        self.btn_rail_ana.setStyleSheet("color: #ffffff; font-weight: bold; font-size: 16px; border: none; background: transparent;")
+        c_lay.addWidget(self.btn_rail_ana)
+        v_layout.addWidget(card_active)
 
+        # 5. Khoảng cách tới icon Cursors / Đo đạc
+        v_layout.addSpacing(32)
+        self.btn_rail_ruler = QtWidgets.QToolButton()
+        self.btn_rail_ruler.setText("📐")
+        self.btn_rail_ruler.setToolTip("Bật/Tắt Cặp thước đo thời gian A & B (C)")
+        self.btn_rail_ruler.setStyleSheet("QToolButton { border: none; font-size: 18px; }")
+        self.btn_rail_ruler.clicked.connect(self.waveform.toggle_cursors)
+        v_layout.addWidget(self.btn_rail_ruler, 0, QtCore.Qt.AlignHCenter)
+
+        # 6. Khoảng cách tới icon Bố cục
+        v_layout.addSpacing(46)
+        self.btn_rail_grid = QtWidgets.QToolButton()
+        self.btn_rail_grid.setText("▦")
+        self.btn_rail_grid.setToolTip("Xuất báo cáo & Dữ liệu (Ctrl+S)")
+        self.btn_rail_grid.setStyleSheet(f"QToolButton {{ border: none; color: {T.TEXT_DIM}; font-size: 22px; }}")
+        self.btn_rail_grid.clicked.connect(self._export_image)
+        v_layout.addWidget(self.btn_rail_grid, 0, QtCore.Qt.AlignHCenter)
+
+        # Đẩy cụm icon đáy xuống cuối
         v_layout.addStretch(1)
+
+        # 7. Icon phản hồi / Chat
+        self.btn_rail_chat = QtWidgets.QToolButton()
+        self.btn_rail_chat.setText("💬")
+        self.btn_rail_chat.setToolTip("Phản hồi & Trợ giúp")
+        self.btn_rail_chat.setStyleSheet("QToolButton { border: none; font-size: 18px; }")
+        self.btn_rail_chat.clicked.connect(self._show_about)
+        v_layout.addWidget(self.btn_rail_chat, 0, QtCore.Qt.AlignHCenter)
+        v_layout.addSpacing(32)
+
+        # 8. Icon Menu 3 gạch
+        self.btn_rail_menu = QtWidgets.QToolButton()
+        self.btn_rail_menu.setText("☰")
+        self.btn_rail_menu.setToolTip("Menu tác vụ")
+        self.btn_rail_menu.setStyleSheet(f"QToolButton {{ border: none; color: {T.TEXT_DIM}; font-size: 22px; }}")
+        self.btn_rail_menu.clicked.connect(self._show_about)
+        v_layout.addWidget(self.btn_rail_menu, 0, QtCore.Qt.AlignHCenter)
+        v_layout.addSpacing(14)
+
         return rail
 
     # =========================================================================
