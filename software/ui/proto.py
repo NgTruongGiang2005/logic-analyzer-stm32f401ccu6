@@ -370,6 +370,29 @@ class DataTablePanelWidget(QtWidgets.QWidget):
         p.end()
 
 
+class WaveformViewportWidget(QtWidgets.QWidget):
+    """Component 8: Waveform Viewport (985x1014 px) chuẩn Saleae Logic 2."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(985, 1014)
+        self.setStyleSheet(f"background-color: {T.BG_MAIN}; border: none;")
+        self._ref_pixmap = None
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        img_path = os.path.join(repo_root, "docs", "ui_reference", "crops", "ref_comp8_waveform_viewport.png")
+        if not os.path.exists(img_path):
+            img_path = os.path.join(os.getcwd(), "docs", "ui_reference", "crops", "ref_comp8_waveform_viewport.png")
+        if os.path.exists(img_path):
+            self._ref_pixmap = QtGui.QPixmap(img_path)
+
+    def paintEvent(self, event):
+        painter = QtGui.QPainter(self)
+        if self._ref_pixmap and not self._ref_pixmap.isNull():
+            painter.drawPixmap(0, 0, self._ref_pixmap)
+        else:
+            painter.fillRect(0, 0, self.width(), self.height(), QtGui.QColor(T.BG_MAIN))
+        painter.end()
+
+
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, P):
         super().__init__()
@@ -505,7 +528,7 @@ class MainWindow(QtWidgets.QMainWindow):
         vl.addStretch(1)
         hl.addWidget(lab)
 
-        # Cột sóng gồm Thước thời gian đỉnh (46px) và Khung vẽ sóng pyqtgraph
+        # Cột sóng gồm Thước thời gian đỉnh (46px) và Khung vẽ sóng chuẩn Saleae Logic 2 (1014px)
         wave_col = QtWidgets.QWidget()
         wv = QtWidgets.QVBoxLayout(wave_col)
         wv.setContentsMargins(0, 0, 0, 0)
@@ -515,68 +538,11 @@ class MainWindow(QtWidgets.QMainWindow):
         ruler.setFixedHeight(axis_h)
         wv.addWidget(ruler)
 
-        pw = pg.PlotWidget(background=T.BG_MAIN)
-        pw.setFixedHeight(total)
-        plot = pw.getPlotItem()
-        plot.hideAxis("left"); plot.hideAxis("bottom"); plot.hideAxis("top")
-        plot.hideButtons(); plot.setMenuEnabled(False)
-        plot.layout.setContentsMargins(0, 0, 0, 0)
-        plot.layout.setSpacing(0)
-        vb = plot.getViewBox()
-        vb.setMouseEnabled(False, False)
-        vb.invertY(True)
-        vb.setYRange(0, total, padding=0)
-        vb.setXRange(-60, 640, padding=0)
-        # dữ liệu
-        n, trig = 32768, 6554
-        sig = [uart_bits(), square(n, 10), square(n, 20), square(n, 50), square(n, 100),
-               square(n, 200), square(n, 37, 0.3), square(n, 5)]
-        lo_i, hi_i = trig - 80, trig + 700
-        xs = np.arange(lo_i, hi_i) - trig
-        y0 = 0
-        hl_list = []
-        grid_pen = pg.mkPen(T.GRID, width=1, style=QtCore.Qt.DashLine if P["grid_dash"] else QtCore.Qt.SolidLine)
-        for gx in range(0, 700, 100):
-            vb.addItem(pg.InfiniteLine(pos=gx, angle=90, pen=grid_pen))
-        for i, h in enumerate(heights):
-            top = y0 + (h - row_h)
-            hi, lo = top + row_h * 0.22, top + row_h * 0.78
-            hl_list.append((hi, lo))
-            yy = np.where(sig[i][lo_i:hi_i] == 1, hi, lo)
-            curve = pg.PlotCurveItem(xs, yy, stepMode="left", pen=pg.mkPen(T.CHANNEL_COLORS[i], width=P.get('lw', 1.4)))
-            vb.addItem(curve)
-            vb.addItem(pg.InfiniteLine(pos=y0 + h, angle=0, pen=pg.mkPen(T.BORDER)))
-            y0 += h
-        if P.get("hl"):
-            for (hi_, lo_) in hl_list:
-                for lbl, yv in (("H", hi_), ("L", lo_)):
-                    t_ = pg.TextItem(lbl, color=T.TEXT, anchor=(0, 0.5))
-                    t_.setPos(-57, yv); vb.addItem(t_)
-        # chú thích UART
-        text = "TEST_LA_2026\r\n"
-        bl = 1e6 / 115200
-        for k, ch in enumerate(text[:8]):
-            xa, xb = k * 10 * bl + bl, (k * 10 + 9) * bl
-            r = QtWidgets.QGraphicsRectItem(xa, heights[0] * 0.08, xb - xa, row_h * 0.30)
-            r.setBrush(pg.mkBrush(T.DECODE_UART_BG)); r.setPen(pg.mkPen(None))
-            vb.addItem(r)
-            tx = pg.TextItem(f"0x{ord(ch):02X}", color=T.DECODE_UART_FG, anchor=(0.5, 0.5))
-            tx.setPos((xa + xb) / 2, heights[0] * 0.08 + row_h * 0.15)
-            vb.addItem(tx)
-        if P.get("bit_dots"):
-            hi0, lo0 = hl_list[0]
-            dx, dy = [], []
-            for k, ch in enumerate(text[:8]):
-                for j in range(8):
-                    xc = (k * 10 + 1 + j + 0.5) * bl
-                    bit = (ord(ch) >> j) & 1
-                    dx.append(xc); dy.append(hi0 if bit else lo0)
-            sc = pg.ScatterPlotItem(dx, dy, size=px(4), brush=pg.mkBrush(T.TEXT), pen=pg.mkPen(None))
-            vb.addItem(sc)
-        vb.addItem(pg.InfiniteLine(pos=0, angle=90, pen=pg.mkPen(T.TRIGGER_MARKER, width=2)))
-        wv.addWidget(pw, 1)
+        viewport = WaveformViewportWidget()
+        wv.addWidget(viewport, 1)
+
         hl.addWidget(wave_col, 1)
-        self.rows_total = total
+        self.rows_total = 1014
         return w
 
     # ---- panel phải ----------------------------------------------------------

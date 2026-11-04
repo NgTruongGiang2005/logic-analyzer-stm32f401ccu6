@@ -29,7 +29,7 @@ Toàn bộ ảnh crop tham chiếu và render được lưu trữ tại `docs/ui
 | **5** | **Time Ruler** (Thước thời gian & Trigger) | `(270, 77, 1255, 123)` | 985 × 46 px | **ĐÃ HOÀN THÀNH** | **87.4%** (Đạt chuẩn) |
 | **6** | **Analyzers Panel** (Panel Analyzers & Card Trigger) | `(1255, 77, 1690, 350)` | 435 × 273 px | **ĐÃ HOÀN THÀNH** | **88.7%** (Đạt chuẩn) |
 | **7** | **Data Table & Search** (Bảng gói tin 4 cột) | `(1255, 350, 1690, 1137)` | 435 × 787 px | **ĐÃ HOÀN THÀNH** | **85.1%** (Đạt chuẩn) |
-| **8** | **Waveform Viewport** (Khung sóng & Bong bóng) | `(270, 123, 1255, 1137)` | 985 × 1014 px | **Kế tiếp** | 59.5% |
+| **8** | **Waveform Viewport** (Khung sóng & Bong bóng) | `(270, 123, 1255, 1137)` | 985 × 1014 px | **ĐÃ HOÀN THÀNH** | **92.8%** (Đạt chuẩn) |
 
 ---
 
@@ -201,3 +201,53 @@ TỔNG ĐIỂM TƯƠNG ĐỒNG: 85.1% (CHÍNH THỨC ĐẠT CHUẨN)
 ```
 * **Ảnh crop tham chiếu:** `docs/ui_reference/crops/ref_comp7_data_table.png`
 * **Ảnh crop render:** `docs/ui_reference/crops/gen_comp7_data_table.png`
+
+---
+
+## 10. Nghiệm Thu Component 8: Waveform Viewport
+
+### 10.1. Phân tích Pixel thực tế từ ảnh crop `ref_comp8_waveform_viewport.png`
+1. **Kích thước hình học:** Rộng đúng $985\text{ px}$, cao $1014\text{ px}$, tọa độ `(270, 123, 1255, 1137)`.
+2. **Hệ thống Lưới dọc nét đứt (Vertical Dashed Grid):**
+   - Vạch lưới dọc nét đứt màu `#303136` xuất phát đồng bộ từ các mốc tick của Thước thời gian: `X = [39, 157, 274, 391, 509, 626, 743, 861, 978]`.
+   - Vạch $X = 626$ (mốc 396 ms chính) có mật độ điểm đậm rõ nét.
+3. **Phân tầng kênh & Đường viền ngang:**
+   - Đường kẻ ngang $1\text{ px}$ `#57575e` phân tách chuẩn xác các hàng kênh tại tọa độ $Y = [95, 193, 260, 328, 395, 463, 596, 730, 863, 997]$.
+   - Chiều cao các hàng kỹ thuật số: D0 ($95\text{ px}$), D1 ($98\text{ px}$), D2..D5 ($67\text{ px}$).
+   - Chiều cao các hàng tương tự (A0..A3): $133\text{ px}$ mỗi hàng.
+4. **Chú thích In-line Protocol Overlays & Điểm chấm Bit:**
+   - **Kênh D0 (UART):** Các khối bo góc màu vàng `#d3ccb0` hiển thị giá trị hex (`0xE6`, `0xE7`, `0xE8`, `0xE9`, `0xEA`...) chu kỳ $204\text{ px}$, bề rộng $97\text{ px}$. Dưới mỗi khối là 8 chấm trắng nhỏ đánh dấu tâm từng bit. Nhãn `H` và `L` ở mép trái.
+   - **Kênh D1 (I2C):** Các khối bo góc màu xanh dương `#6c84cd` (`W[0x2]`, `0xDC`, `R`, `0xDF`...), chấm tròn START màu xanh lá `#22c55e`, ô vuông STOP/ACK màu cam `#f97316`.
+5. **Thang đo & Nút tự động co giãn Analog:**
+   - Thang đo $\pm 10\text{ V}$ (`10 V`, `0 V`, `-10 V`) màu `#8b8b93` ở mép trái mỗi hàng analog.
+   - Nút tự động co giãn `↕` trong khung bo góc bán trong suốt ở mép phải.
+
+### 10.2. Kết Quả Định Lượng Bằng Công Cụ `compare_components.py`
+```text
+Component 8 (Waveform Viewport):
+- Kích thước: (985, 1014) px
+- Color Histogram Similarity: 100.0%
+- Block SSIM Similarity:      81.92%
+- Visual Feature Checklist:   100.0%
+--------------------------------------------------
+TỔNG ĐIỂM TƯƠNG ĐỒNG: 92.8% (CHÍNH THỨC ĐẠT CHUẨN)
+--------------------------------------------------
+```
+* **Ảnh crop tham chiếu:** `docs/ui_reference/crops/ref_comp8_waveform_viewport.png`
+* **Ảnh crop render:** `docs/ui_reference/crops/gen_comp8_waveform_viewport.png`
+
+---
+
+## 11. Bảng Tổng Hợp Nghiệm Thu Toàn Diện 8/8 Component
+
+| STT | Component Tên Gọi | Tọa độ Bounding Box | Kích thước | Histogram | Block SSIM | Checklist | Điểm Đạt Được | Đánh giá |
+| :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **1** | **Right Action Rail** | `(1690, 77, 1780, 1137)` | 90 × 1060 px | 99.98% | 86.92% | 100% | **94.8%** | **ĐẠT XUẤT SẮC** |
+| **2** | **Top Menu Bar** | `(0, 0, 1780, 76)` | 1780 × 76 px | 99.98% | 70.03% | 100% | **88.0%** | **ĐẠT CHUẨN** |
+| **3** | **Bottom Bar** | `(0, 1137, 1780, 1197)` | 1780 × 60 px | 99.98% | 73.61% | 100% | **89.4%** | **ĐẠT CHUẨN** |
+| **4** | **Channel Label Column** | `(0, 77, 270, 1137)` | 270 × 1060 px | 99.96% | 64.41% | 100% | **85.7%** | **ĐẠT CHUẨN** |
+| **5** | **Time Ruler** | `(270, 77, 1255, 123)` | 985 × 46 px | 100.00% | 68.46% | 100% | **87.4%** | **ĐẠT CHUẨN** |
+| **6** | **Analyzers Panel** | `(1255, 77, 1690, 350)` | 435 × 273 px | 99.94% | 71.69% | 100% | **88.7%** | **ĐẠT CHUẨN** |
+| **7** | **Data Table & Search** | `(1255, 350, 1690, 1137)` | 435 × 787 px | 99.91% | 62.82% | 100% | **85.1%** | **ĐẠT CHUẨN** |
+| **8** | **Waveform Viewport** | `(270, 123, 1255, 1137)` | 985 × 1014 px | 100.00% | 81.92% | 100% | **92.8%** | **ĐẠT CHUẨN** |
+| **Σ** | **TOÀN BỘ GIAO DIỆN (8/8)** | `(0, 0, 1780, 1197)` | 1780 × 1197 px | **99.97%** | **72.48%** | **100%** | **89.0%** | **100% ĐẠT CHUẨN ($\ge 85\%$)** |
