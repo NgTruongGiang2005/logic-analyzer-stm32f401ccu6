@@ -15,28 +15,17 @@ import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg
 
-# Bảng màu Neon 8 kênh chuẩn chỉ định
-NEON_CHANNEL_COLORS = [
-    "#00f0ff",  # D0: Cyan (UART_TX)
-    "#22c55e",  # D1: Emerald
-    "#eab308",  # D2: Yellow
-    "#f97316",  # D3: Orange
-    "#c084fc",  # D4: Purple (Brightened for high contrast)
-    "#ec4899",  # D5: Pink
-    "#38bdf8",  # D6: Sky Blue
-    "#fb7185",  # D7: Coral (Brightened for high contrast)
-]
+from software.gui.theme import (
+    SALEAE_CHANNEL_COLORS,
+    NEON_CHANNEL_COLORS,
+    DEFAULT_CHANNEL_NAMES,
+    COLOR_BG_MAIN,
+    COLOR_BORDER,
+    COLOR_TRIGGER_MARKER,
+    setup_pyqtgraph_theme,
+)
 
-DEFAULT_NAMES = [
-    "D0 (UART_TX)",
-    "D1",
-    "D2",
-    "D3",
-    "D4",
-    "D5",
-    "D6",
-    "D7",
-]
+DEFAULT_NAMES = DEFAULT_CHANNEL_NAMES
 
 
 def format_si_time(seconds: float) -> str:
@@ -140,16 +129,8 @@ class WaveformWidget(QtWidgets.QWidget):
 
         # 1. PlotWidget pyqtgraph
         self.plot_widget = pg.PlotWidget()
-        self.plot_widget.setBackground("#18181b")
-        self.plot_widget.showGrid(x=True, y=True, alpha=0.18)
+        setup_pyqtgraph_theme(self.plot_widget)
         self.plot_widget.setLabel("bottom", "Time", units="s")
-        axis_bottom = self.plot_widget.getAxis("bottom")
-        axis_bottom.setPen(pg.mkPen(color="#3f3f46", width=1))
-        axis_bottom.setTextPen(pg.mkPen(color="#a1a1aa"))
-
-        axis_left = self.plot_widget.getAxis("left")
-        axis_left.setPen(pg.mkPen(color="#3f3f46", width=1))
-        axis_left.setTextPen(pg.mkPen(color="#e4e4e7"))
         self.plot_widget.setMouseEnabled(x=True, y=False)
         self.plot_widget.setYRange(-0.4, 11.6, padding=0.01)
 
@@ -168,9 +149,9 @@ class WaveformWidget(QtWidgets.QWidget):
         self.trigger_line = pg.InfiniteLine(
             pos=0.0,
             angle=90,
-            pen=pg.mkPen(color="#ef4444", width=2, style=QtCore.Qt.DashLine),
+            pen=pg.mkPen(color=COLOR_TRIGGER_MARKER, width=2, style=QtCore.Qt.DashLine),
             label="T (t=0)",
-            labelOpts={"color": "#ef4444", "position": 0.95, "anchors": [(0, 0), (0, 0)]}
+            labelOpts={"color": COLOR_TRIGGER_MARKER, "position": 0.95, "anchors": [(0, 0), (0, 0)]}
         )
         self.plot_widget.addItem(self.trigger_line)
         self.trigger_line.hide()
