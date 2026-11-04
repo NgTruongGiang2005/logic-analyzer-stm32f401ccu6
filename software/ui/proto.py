@@ -68,6 +68,52 @@ def square(n, period, duty=0.5, phase=0):
     return (i < period * duty).astype(np.uint8)
 
 
+class TimeRulerWidget(QtWidgets.QWidget):
+    """Thước đo thời gian 2 hàng chuẩn Saleae Logic 2 theo ref_comp5_time_ruler."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setStyleSheet(f"background-color: {T.BG_MAIN}; border: none;")
+
+    def paintEvent(self, event):
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing, False)
+        painter.setRenderHint(QtGui.QPainter.TextAntialiasing, True)
+        w, h = self.width(), self.height()
+
+        # Nền chính #1b1b1c
+        painter.fillRect(0, 0, w, h, QtGui.QColor(T.BG_MAIN))
+
+        # Viền trên và viền dưới
+        painter.setPen(QtGui.QPen(QtGui.QColor(20, 20, 21), 1))
+        painter.drawLine(0, 0, w, 0)
+        painter.setPen(QtGui.QPen(QtGui.QColor(48, 49, 54), 1))
+        painter.drawLine(0, h - 1, w, h - 1)
+
+        ticks = [39, 157, 274, 391, 509, 743, 861, 978]
+        labels_rel = ['+0.5 ms', '+0.6 ms', '+0.7 ms', '+0.8 ms', '+0.9 ms', '+0.1 ms', '+0.2 ms', '+0.3 ms']
+
+        # Vạch subtick chỉ xuống dưới mép sóng (y: 40..43)
+        painter.setPen(QtGui.QPen(QtGui.QColor(87, 87, 94), 1))
+        for t in ticks:
+            if t < w:
+                painter.drawLine(t, 40, t, 43)
+
+        # Hàng 1: Mốc thời gian tuyệt đối (395 ms, 396 ms)
+        painter.setFont(QtGui.QFont("Segoe UI", 8, QtGui.QFont.Bold))
+        painter.setPen(QtGui.QColor(255, 255, 255))
+        painter.drawText(10, 16, "395 ms")
+        if 627 < w:
+            painter.drawText(627, 16, "396 ms")
+
+        # Hàng 2: Mốc thời gian tương đối (+0.5 ms, +0.6 ms...)
+        painter.setFont(QtGui.QFont("Segoe UI", 9, QtGui.QFont.Bold))
+        painter.setPen(QtGui.QColor(255, 255, 255))
+        for t, lbl in zip(ticks, labels_rel):
+            if t < w - 25:
+                painter.drawText(QtCore.QRect(t - 30, 20, 60, 16), QtCore.Qt.AlignCenter, lbl)
+        painter.end()
+
+
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, P):
         super().__init__()
@@ -155,7 +201,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def _wave_area(self):
         P = self.P
         row_h = px(P["row_h"])
-        axis_h = px(P["axis_h"])
+        axis_h = 46
         if P.get("stretch"):
             avail = H - 76 - px(P["bottom_h"]) - axis_h
             row_h = int(avail / (7 + P["dec_scale"]))
@@ -200,24 +246,26 @@ class MainWindow(QtWidgets.QMainWindow):
                 lay.addWidget(chip)
                 lay.addStretch(1)
             vl.addWidget(f)
-            vl.addWidget(f)
         vl.addStretch(1)
         hl.addWidget(lab)
-        # vùng đồ thị
-        class Ax(pg.AxisItem):
-            def tickStrings(self, values, scale, spacing):
-                return [f"+{v / 1000:.1f} ms" for v in values]
-        pw = pg.PlotWidget(background=T.BG_MAIN, axisItems={"top": Ax("top")})
-        pw.setFixedHeight(axis_h + total)
+
+        # Cột sóng gồm Thước thời gian đỉnh (46px) và Khung vẽ sóng pyqtgraph
+        wave_col = QtWidgets.QWidget()
+        wv = QtWidgets.QVBoxLayout(wave_col)
+        wv.setContentsMargins(0, 0, 0, 0)
+        wv.setSpacing(0)
+
+        ruler = TimeRulerWidget()
+        ruler.setFixedHeight(axis_h)
+        wv.addWidget(ruler)
+
+        pw = pg.PlotWidget(background=T.BG_MAIN)
+        pw.setFixedHeight(total)
         plot = pw.getPlotItem()
-        plot.hideAxis("left"); plot.hideAxis("bottom"); plot.showAxis("top")
+        plot.hideAxis("left"); plot.hideAxis("bottom"); plot.hideAxis("top")
         plot.hideButtons(); plot.setMenuEnabled(False)
         plot.layout.setContentsMargins(0, 0, 0, 0)
         plot.layout.setSpacing(0)
-        ax = plot.getAxis("top")
-        ax.setHeight(axis_h)
-        ax.setPen(pg.mkPen(T.GRID)); ax.setTextPen(pg.mkPen(T.TEXT))
-        ax.setTickSpacing(100, 50)
         vb = plot.getViewBox()
         vb.setMouseEnabled(False, False)
         vb.invertY(True)
@@ -270,7 +318,8 @@ class MainWindow(QtWidgets.QMainWindow):
             sc = pg.ScatterPlotItem(dx, dy, size=px(4), brush=pg.mkBrush(T.TEXT), pen=pg.mkPen(None))
             vb.addItem(sc)
         vb.addItem(pg.InfiniteLine(pos=0, angle=90, pen=pg.mkPen(T.TRIGGER_MARKER, width=2)))
-        hl.addWidget(pw, 1, QtCore.Qt.AlignTop)
+        wv.addWidget(pw, 1)
+        hl.addWidget(wave_col, 1)
         self.rows_total = total
         return w
 

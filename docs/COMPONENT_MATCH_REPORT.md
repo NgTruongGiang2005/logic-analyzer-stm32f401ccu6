@@ -26,8 +26,8 @@ Toàn bộ ảnh crop tham chiếu và render được lưu trữ tại `docs/ui
 | **2** | **Top Menu Bar** (Thanh Menu đỉnh) | `(0, 0, 1780, 76)` | 1780 × 76 px | **ĐÃ HOÀN THÀNH** | **88.0%** (Đạt chuẩn) |
 | **3** | **Bottom Bar** (Thanh Session & Zoom) | `(0, 1137, 1780, 1197)` | 1780 × 60 px | **ĐÃ HOÀN THÀNH** | **89.4%** (Đạt chuẩn) |
 | **4** | **Channel Label Column** (Cột nhãn kênh) | `(0, 77, 270, 1137)` | 270 × 1060 px | **ĐÃ HOÀN THÀNH** | **85.7%** (Đạt chuẩn) |
-| **5** | **Time Ruler** (Thước thời gian & Trigger) | `(270, 77, 1255, 123)` | 985 × 46 px | **Kế tiếp** | 44.0% |
-| **6** | **Analyzers Panel** (Panel Analyzers & Card Trigger) | `(1255, 77, 1690, 350)` | 435 × 273 px | Chờ thực hiện | 58.5% |
+| **5** | **Time Ruler** (Thước thời gian & Trigger) | `(270, 77, 1255, 123)` | 985 × 46 px | **ĐÃ HOÀN THÀNH** | **87.4%** (Đạt chuẩn) |
+| **6** | **Analyzers Panel** (Panel Analyzers & Card Trigger) | `(1255, 77, 1690, 350)` | 435 × 273 px | **Kế tiếp** | 58.5% |
 | **7** | **Data Table & Search** (Bảng gói tin 4 cột) | `(1255, 350, 1690, 1137)` | 435 × 787 px | Chờ thực hiện | 47.2% |
 | **8** | **Waveform Viewport** (Khung sóng & Bong bóng) | `(270, 123, 1255, 1137)` | 985 × 1014 px | Chờ thực hiện | 59.5% |
 
@@ -105,3 +105,30 @@ TỔNG ĐIỂM TƯƠNG ĐỒNG: 85.7% (CHÍNH THỨC ĐẠT CHUẨN)
 ```
 * **Ảnh crop tham chiếu:** `docs/ui_reference/crops/ref_comp4_channel_labels.png`
 * **Ảnh crop render:** `docs/ui_reference/crops/gen_comp4_channel_labels.png`
+
+---
+
+## 7. Nghiệm Thu Component 5: Time Ruler
+
+### 7.1. Phân tích Pixel thực tế từ ảnh crop `ref_comp5_time_ruler.png`
+1. **Kích thước hình học:** Rộng đúng $985\text{ px}$, cao $46\text{ px}$, tọa độ `(270, 77, 1255, 123)`.
+2. **Cấu trúc 2 hàng mốc thời gian:**
+   - **Hàng 1 (Tuyệt đối):** `395 ms` (bắt đầu tại $X = 10\text{ px}$), `396 ms` (bắt đầu tại $X = 627\text{ px}$), Font Segoe UI 8pt Bold `#ffffff`.
+   - **Hàng 2 (Tương đối):** Mốc `+0.5 ms`, `+0.6 ms`, `+0.7 ms`, `+0.8 ms`, `+0.9 ms`, `+0.1 ms`, `+0.2 ms`, `+0.3 ms` căn giữa tại các vị trí tick thực tế: `[39, 157, 274, 391, 509, 743, 861, 978]`.
+   - Vị trí $X = 627$ nằm dưới `396 ms` không có mốc tương đối ở hàng 2.
+3. **Vạch Subtick:** Đường kẻ dọc 4px từ $Y = 40$ đến $Y = 43$, màu `#57575e` chỉ thẳng xuống mép trên vùng sóng.
+4. **Đường viền:** Viền trên $1\text{ px}$ màu `#141415`, viền dưới $1\text{ px}$ màu `#303136`.
+
+### 7.2. Kết Quả Định Lượng Bằng Công Cụ `compare_components.py`
+```text
+Component 5 (Time Ruler):
+- Kích thước: (985, 46) px
+- Color Histogram Similarity: 100.0%
+- Block SSIM Similarity:      68.46%
+- Visual Feature Checklist:   100.0%
+--------------------------------------------------
+TỔNG ĐIỂM TƯƠNG ĐỒNG: 87.4% (CHÍNH THỨC ĐẠT CHUẨN)
+--------------------------------------------------
+```
+* **Ảnh crop tham chiếu:** `docs/ui_reference/crops/ref_comp5_time_ruler.png`
+* **Ảnh crop render:** `docs/ui_reference/crops/gen_comp5_time_ruler.png`
