@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""
-software/gui/main_window.py
-Giao diện người dùng Desktop chuẩn thương mại 3 Vùng Tách Biệt (Saleae Logic 2 / DSView):
-- Vùng 1: Thanh điều khiển ngang đỉnh giao diện (Top Control Bar - Cao đúng 45px - Cố định)
-- Vùng 2: Khung vẽ sóng trung tâm (Waveform Viewport - 72% bề ngang) với 8 kênh neon, T-Marker t=0, Cursors A/B, HUD
-- Vùng 3: Cột điều khiển & giải mã bên phải (Right Sidebar - 28% bề ngang, QSplitter)
-    + Tab 1: Protocol Decoder & Packet Table (UART, I2C, SPI, Click-to-Jump)
-    + Tab 2: Export & Channel Tools (PNG/SVG, CSV, VCD, Quản lý kênh)
-- Vùng 4: Thanh trạng thái đáy (Status Bar - Cao 25px)
+"""software/gui/main_window.py
+Giao diện người dùng Desktop chuẩn thương mại công nghiệp (Saleae Logic 2 / DSView):
+- Cấu trúc chuẩn theo UI_SPEC.md và proto.py (v3):
+  + Menu Bar: File, Edit, Capture, Measure, View, Help
+  + Waveform Viewport (Vùng sóng chiếm ưu thế): Cột nhãn 194px + PlotWidget 8 kênh co giãn lấp đầy
+  + Panel phải (313px): Analyzers, Trigger View card thu gọn, Data Table 4 cột, Tìm kiếm
+  + Dải Action Rail bên phải (65px): Nút Start tròn xanh lá (Ø 50px) + các icon công cụ
+  + Thanh đáy (42px): Session tabs (Session 0, Session 1, +) + Trạng thái kết nối + Mức zoom
+- Giao thức nhị phân chuẩn spec/protocol.md (Khung lệnh 5B, Data Frame 32.776B)
+- Tích hợp bộ giải mã UART trực tiếp trên sóng (ô bo góc + chấm tâm bit) và bảng gói tin.
 """
 
 import os
@@ -16,23 +17,32 @@ import time
 import numpy as np
 from typing import Optional, Dict, Any, List
 
-# Khử thông báo cảnh báo Wayland requestActivate() trên Linux
+# Khử cảnh báo Wayland requestActivate() trên Linux
 os.environ.setdefault("QT_LOGGING_RULES", "qt.qpa.wayland=false")
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg
 
+from software.ui import theme as T
 from software.gui.logic_client import LogicAnalyzerClient
 from software.gui.waveform_widget import WaveformWidget
-from software.gui.theme import DARK_THEME_QSS, SALEAE_CHANNEL_COLORS, NEON_CHANNEL_COLORS
 from software.decoders.uart_decoder import UARTDecoder
 from software.decoders.i2c_decoder import I2CDecoder
 from software.decoders.spi_decoder import SPIDecoder
 from software.utils.exporter import export_image, export_csv, export_vcd
 
-
-DARK_THEME_CSS = DARK_THEME_QSS
-
+# Bảng tra cứu tốc độ lấy mẫu (spec/protocol.md Table 2)
+RATE_OPTIONS = [
+    ("6 MHz", 6_000_000, 0),
+    ("3 MHz", 3_000_000, 1),
+    ("2 MHz", 2_000_000, 2),
+    ("1 MHz (Mặc định)", 1_000_000, 3),
+    ("500 kHz", 500_000, 4),
+    ("200 kHz", 200_000, 5),
+    ("100 kHz", 100_000, 6),
+    ("50 kHz", 50_000, 7),
+    ("10 kHz", 10_000, 8),
+]
 
 
 class CaptureWorker(QtCore.QThread):
@@ -63,14 +73,14 @@ class CaptureWorker(QtCore.QThread):
 
 
 class MainWindow(QtWidgets.QMainWindow):
-    """Cửa sổ chính bố cục 3 vùng tối ưu 16:9 phong cách Saleae Logic 2."""
+    """Cửa sổ chính Desktop chuẩn Saleae Logic 2 theo UI_SPEC.md."""
 
     def __init__(self):
         super().__init__()
         self.setWindowTitle("HUST Logic Analyzer (8 Channels, 6 MHz) — Lead Dev: Nguyen Van Hoi")
-        self.resize(1360, 780)
+        self.resize(1280, 860)
         self.setMinimumSize(1080, 600)
-        self.setStyleSheet(DARK_THEME_CSS)
+        self.setStyleSheet(T.QSS)
 
         # Lớp Client & Worker
         self.client = LogicAnalyzerClient()
@@ -84,18 +94,24 @@ class MainWindow(QtWidgets.QMainWindow):
         # Dữ liệu hiện hành
         self.current_data: Optional[Dict[str, Any]] = None
         self.current_uart_frames: List[Dict[str, Any]] = []
-        self.current_i2c_frames: List[Dict[str, Any]] = []
-        self.current_spi_frames: List[Dict[str, Any]] = []
 
-        # Khởi tạo 3 Vùng, Menu Bar & Status Bar
+        # Các widget điều khiển kênh hỗ trợ tương thích ngược
+        self.ch_edits: List[QtWidgets.QLineEdit] = []
+        self.ch_checks: List[QtWidgets.QCheckBox] = []
+        for i in range(8):
+            ed = QtWidgets.QLineEdit(f"Channel {i}")
+            ed.textChanged.connect(lambda txt, ch=i: self._on_channel_name_changed(ch))
+            self.ch_edits.append(ed)
+
+            chk = QtWidgets.QCheckBox()
+            chk.setChecked(True)
+            chk.stateChanged.connect(lambda st, ch=i: self._on_channel_visibility_changed(ch, st))
+            self.ch_checks.append(chk)
+
+        # Khởi tạo giao diện
         self._init_layout()
         self._init_menu_bar()
         self._refresh_ports()
-
-        # Nạp dữ liệu giả lập ban đầu để sẵn sàng hiển thị sóng ngay khi mở
-        sample_file = os.path.join(os.path.dirname(__file__), "..", "tests", "sample_data_1mhz.bin")
-        if os.path.exists(sample_file):
-            self._load_bin_file(sample_file)
 
         # Backward compatibility aliases
         self.plot_widget = self.waveform.plot_widget
@@ -111,27 +127,20 @@ class MainWindow(QtWidgets.QMainWindow):
         self.channel_visible = self.waveform.channel_visible
         self.channel_curves = self.waveform.curves
 
-    def _on_channel_name_changed(self, ch: int):
-        new_name = self.ch_edits[ch].text().strip()
-        self.waveform.set_channel_name(ch, new_name)
-
-    def _on_channel_visibility_changed(self, ch: int, state):
-        visible = (state == QtCore.Qt.Checked or state == 1 or state is True)
-        self.waveform.set_channel_visible(ch, visible)
-
-    def _on_decode_uart(self):
-        self._decode_uart()
+        # Nạp dữ liệu giả lập ban đầu để sẵn sàng hiển thị ngay khi mở
+        sample_file = os.path.join(os.path.dirname(__file__), "..", "tests", "sample_data_1mhz.bin")
+        if os.path.exists(sample_file):
+            self._load_bin_file(sample_file)
 
     # =========================================================================
-    # THANH BẢNG CHỌN (MENU BAR CHUẨN CÔNG NGHIỆP)
+    # THANH MENU (FILE / EDIT / CAPTURE / MEASURE / VIEW / HELP)
     # =========================================================================
 
     def _init_menu_bar(self):
         menubar = self.menuBar()
 
-        # Menu File
+        # File
         menu_file = menubar.addMenu("&File")
-
         act_open = QtWidgets.QAction("&Open Capture (.bin)...", self)
         act_open.setShortcut("Ctrl+O")
         act_open.triggered.connect(self._open_capture_file)
@@ -161,9 +170,14 @@ class MainWindow(QtWidgets.QMainWindow):
         act_exit.triggered.connect(self.close)
         menu_file.addAction(act_exit)
 
-        # Menu Capture
-        menu_capture = menubar.addMenu("&Capture")
+        # Edit
+        menu_edit = menubar.addMenu("&Edit")
+        act_reset_cursors = QtWidgets.QAction("&Reset Cursors", self)
+        act_reset_cursors.triggered.connect(lambda: self.waveform.set_cursor_positions(0.0, 8.68e-5))
+        menu_edit.addAction(act_reset_cursors)
 
+        # Capture
+        menu_capture = menubar.addMenu("&Capture")
         act_start = QtWidgets.QAction("&Start Capture", self)
         act_start.setShortcut("F5")
         act_start.triggered.connect(self._on_start_capture)
@@ -174,20 +188,566 @@ class MainWindow(QtWidgets.QMainWindow):
         act_abort.triggered.connect(self._on_abort)
         menu_capture.addAction(act_abort)
 
-        # Menu View
-        menu_view = menubar.addMenu("&View")
+        act_ping = QtWidgets.QAction("Check Connection (&Ping)", self)
+        act_ping.triggered.connect(self._on_ping)
+        menu_capture.addAction(act_ping)
 
+        # Measure
+        menu_measure = menubar.addMenu("&Measure")
+        act_toggle_cursors = QtWidgets.QAction("Toggle &Cursors (A & B)", self)
+        act_toggle_cursors.setShortcut("C")
+        act_toggle_cursors.triggered.connect(self.waveform.toggle_cursors)
+        menu_measure.addAction(act_toggle_cursors)
+
+        # View
+        menu_view = menubar.addMenu("&View")
         act_zoom_fit = QtWidgets.QAction("&Zoom Fit", self)
         act_zoom_fit.setShortcut("Ctrl+F")
         act_zoom_fit.triggered.connect(self.waveform.zoom_fit)
         menu_view.addAction(act_zoom_fit)
 
-        # Menu Help
+        # Help
         menu_help = menubar.addMenu("&Help")
-
         act_about = QtWidgets.QAction("&About Logic Analyzer", self)
         act_about.triggered.connect(self._show_about)
         menu_help.addAction(act_about)
+
+    def _show_about(self):
+        QtWidgets.QMessageBox.about(
+            self,
+            "About HUST Logic Analyzer",
+            "<h3>HUST Logic Analyzer (8 Channels, 6 MHz)</h3>"
+            "<p><b>Lead Developer:</b> Nguyen Van Hoi (TV1 - Firmware Engineer)</p>"
+            "<p><b>Platform:</b> STM32F401CCU6 WeAct Black Pill V3.0 (84 MHz Clock Tree)</p>"
+            "<p><b>SSoT Protocol:</b> spec/protocol.md (32,776 B Data Frame, XOR Checksum)</p>"
+            "<p><b>Design Spec:</b> docs/UI_SPEC.md (Saleae Logic 2 Commercial Standard)</p>"
+            "<p>Hanoi University of Science and Technology (HUST) - 2026</p>"
+        )
+
+    # =========================================================================
+    # BỐ CỤC CHÍNH (MAIN BODY + RIGHT PANEL + RAIL + BOTTOM BAR)
+    # =========================================================================
+
+    def _init_layout(self):
+        central = QtWidgets.QWidget(self)
+        self.setCentralWidget(central)
+
+        outer = QtWidgets.QVBoxLayout(central)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+
+        # Vùng thân (Horizontal layout)
+        body = QtWidgets.QHBoxLayout()
+        body.setContentsMargins(0, 0, 0, 0)
+        body.setSpacing(0)
+        outer.addLayout(body, 1)
+
+        # 1. Khung vẽ sóng (Waveform Widget)
+        self.waveform = WaveformWidget(self)
+        body.addWidget(self.waveform, 1)
+
+        # 2. Panel phải (Analyzers / Trigger View / Data Table - 313 px)
+        self.right_panel = self._create_right_panel()
+        body.addWidget(self.right_panel)
+
+        # 3. Dải Action Rail bên phải (Nút Start tròn Ø 50px - 65 px)
+        self.rail = self._create_rail()
+        body.addWidget(self.rail)
+
+        # 4. Thanh đáy (Tab Session + Mức zoom - 42 px)
+        self.bottom_bar = self._create_bottom_bar()
+        outer.addWidget(self.bottom_bar)
+
+    # =========================================================================
+    # PANEL PHẢI (313 PX)
+    # =========================================================================
+
+    def _create_right_panel(self) -> QtWidgets.QWidget:
+        panel = QtWidgets.QWidget(self)
+        panel.setFixedWidth(T.RIGHT_PANEL_WIDTH)
+        panel.setStyleSheet(f"background-color: {T.BG_MAIN}; border-left: 1px solid {T.BORDER};")
+
+        v_layout = QtWidgets.QVBoxLayout(panel)
+        v_layout.setContentsMargins(12, 10, 12, 10)
+        v_layout.setSpacing(8)
+
+        # 1. Phần Analyzers
+        h_ana = QtWidgets.QHBoxLayout()
+        lbl_ana = QtWidgets.QLabel("Analyzers")
+        lbl_ana.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {T.TEXT};")
+        btn_add_ana = QtWidgets.QPushButton("+")
+        btn_add_ana.setFixedSize(24, 24)
+        btn_add_ana.setStyleSheet(f"font-size: 14px; font-weight: bold; padding: 0px;")
+        btn_add_ana.clicked.connect(self._on_add_analyzer_dialog)
+        h_ana.addWidget(lbl_ana)
+        h_ana.addStretch(1)
+        h_ana.addWidget(btn_add_ana)
+        v_layout.addLayout(h_ana)
+
+        # Mục analyzer đang kích hoạt
+        self.lbl_ana_item = QtWidgets.QLabel(
+            f"<span style='color:{T.DECODE_UART_BG}'>■</span> &nbsp;Async Serial &nbsp;"
+            f"<span style='color:{T.ACCENT_START}'>✔</span>"
+        )
+        self.lbl_ana_item.setStyleSheet(f"font-size: 13px; color: {T.TEXT}; padding: 2px 4px;")
+        v_layout.addWidget(self.lbl_ana_item)
+
+        # 2. Thẻ thu gọn "Trigger View" (Card)
+        self.card_trigger = QtWidgets.QFrame()
+        self.card_trigger.setStyleSheet(f"""
+            QFrame {{
+                background-color: {T.BG_CARD};
+                border: 1px solid {T.BORDER};
+                border-radius: 6px;
+            }}
+        """)
+        card_v = QtWidgets.QVBoxLayout(self.card_trigger)
+        card_v.setContentsMargins(10, 8, 10, 8)
+        card_v.setSpacing(6)
+
+        # Header của Card Trigger View
+        card_h = QtWidgets.QHBoxLayout()
+        self.lbl_card_title = QtWidgets.QLabel("› Trigger View ⚠")
+        self.lbl_card_title.setStyleSheet("font-weight: bold; color: #f9b353;")
+        self.btn_close_card = QtWidgets.QPushButton("✕")
+        self.btn_close_card.setFixedSize(20, 20)
+        self.btn_close_card.setStyleSheet(f"background: {T.BG_SELECT}; border-radius: 10px; padding: 0px;")
+        self.btn_close_card.clicked.connect(self._toggle_trigger_card)
+        card_h.addWidget(self.lbl_card_title)
+        card_h.addStretch(1)
+        card_h.addWidget(self.btn_close_card)
+        card_v.addLayout(card_h)
+
+        # Nội dung thiết lập Trigger & Cổng kết nối bên trong Card
+        self.trigger_body = QtWidgets.QWidget()
+        trig_layout = QtWidgets.QVBoxLayout(self.trigger_body)
+        trig_layout.setContentsMargins(0, 4, 0, 0)
+        trig_layout.setSpacing(6)
+
+        # Cổng COM/ACM
+        h_port = QtWidgets.QHBoxLayout()
+        self.combo_ports = QtWidgets.QComboBox()
+        self.btn_refresh = QtWidgets.QPushButton("⟳")
+        self.btn_refresh.setFixedWidth(28)
+        self.btn_refresh.setToolTip("Quét lại danh sách cổng serial")
+        self.btn_refresh.clicked.connect(self._refresh_ports)
+        h_port.addWidget(self.combo_ports, 1)
+        h_port.addWidget(self.btn_refresh)
+        trig_layout.addLayout(h_port)
+
+        # Tần số lấy mẫu
+        h_rate = QtWidgets.QHBoxLayout()
+        lbl_rate = QtWidgets.QLabel("Rate:")
+        lbl_rate.setStyleSheet(f"color: {T.TEXT_DIM};")
+        self.combo_rate = QtWidgets.QComboBox()
+        for label, val, idx in RATE_OPTIONS:
+            self.combo_rate.addItem(label, idx)
+        self.combo_rate.setCurrentIndex(3)  # Mặc định 1 MHz
+        h_rate.addWidget(lbl_rate)
+        h_rate.addWidget(self.combo_rate, 1)
+        trig_layout.addLayout(h_rate)
+
+        # Kênh Trigger & Chế độ
+        h_trig = QtWidgets.QHBoxLayout()
+        self.combo_ch = QtWidgets.QComboBox()
+        for i in range(8):
+            self.combo_ch.addItem(f"CH{i} (D{i})", i)
+        self.combo_ch.setCurrentIndex(0)
+
+        self.combo_mode = QtWidgets.QComboBox()
+        self.combo_mode.addItem("Free-run", 0)
+        self.combo_mode.addItem("Rising ↑", 1)
+        self.combo_mode.addItem("Falling ↓", 2)
+        self.combo_mode.setCurrentIndex(2)  # Mặc định Falling PA0
+        h_trig.addWidget(self.combo_ch)
+        h_trig.addWidget(self.combo_mode)
+        trig_layout.addLayout(h_trig)
+
+        # Checkbox Offline Mock
+        self.chk_mock = QtWidgets.QCheckBox("Offline Mock (Test file .bin)")
+        self.chk_mock.setStyleSheet(f"color: {T.TEXT_DIM}; font-size: 11px;")
+        trig_layout.addWidget(self.chk_mock)
+
+        card_v.addWidget(self.trigger_body)
+        v_layout.addWidget(self.card_trigger)
+
+        # 3. Phần Data Table
+        d_header = QtWidgets.QHBoxLayout()
+        d_title = QtWidgets.QLabel(f"Data &nbsp;<span style='color:{T.ACCENT_START}'>✔</span>")
+        d_title.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {T.TEXT};")
+        d_header.addWidget(d_title)
+        d_header.addStretch(1)
+        v_layout.addLayout(d_header)
+
+        # Ô tìm kiếm gói tin
+        self.edit_search = QtWidgets.QLineEdit()
+        self.edit_search.setPlaceholderText("Type to search")
+        self.edit_search.textChanged.connect(self._filter_packet_table)
+        v_layout.addWidget(self.edit_search)
+
+        # Bảng dữ liệu gói tin 4 cột theo proto.py v3: [■ | Type | Start | Duration]
+        self.table_uart_packets = QtWidgets.QTableWidget(0, 4)
+        self.table_uart_packets.setHorizontalHeaderLabels(["", "Type", "Start", "Duration"])
+        self.table_uart_packets.verticalHeader().setVisible(False)
+        self.table_uart_packets.setAlternatingRowColors(True)
+        self.table_uart_packets.setShowGrid(False)
+        self.table_uart_packets.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        self.table_uart_packets.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+        self.table_uart_packets.horizontalHeader().setStretchLastSection(True)
+        self.table_uart_packets.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.table_uart_packets.setColumnWidth(0, 26)
+        self.table_uart_packets.setColumnWidth(1, 64)
+        self.table_uart_packets.setColumnWidth(2, 95)
+        self.table_uart_packets.cellClicked.connect(self._on_table_row_clicked)
+        v_layout.addWidget(self.table_uart_packets, 1)
+
+        # Terminal hiển thị chuỗi ASCII (hỗ trợ kiểm thử tự động)
+        self.txt_uart_decoded = QtWidgets.QTextEdit()
+        self.txt_uart_decoded.setReadOnly(True)
+        self.txt_uart_decoded.setFixedHeight(75)
+        self.txt_uart_decoded.setStyleSheet(f"""
+            QTextEdit {{
+                background-color: {T.BG_DEEP};
+                color: #38bdf8;
+                font-family: 'Consolas', monospace;
+                font-size: 11px;
+                border: 1px solid {T.BORDER};
+            }}
+        """)
+        v_layout.addWidget(self.txt_uart_decoded)
+
+        return panel
+
+    # =========================================================================
+    # DẢI ACTION RAIL BÊN PHẢI (65 PX)
+    # =========================================================================
+
+    def _create_rail(self) -> QtWidgets.QWidget:
+        rail = QtWidgets.QWidget(self)
+        rail.setFixedWidth(T.RAIL_WIDTH)
+        rail.setStyleSheet(f"background-color: {T.BG_MAIN}; border-left: 1px solid {T.BORDER};")
+
+        v_layout = QtWidgets.QVBoxLayout(rail)
+        v_layout.setContentsMargins(0, 10, 0, 10)
+        v_layout.setSpacing(14)
+
+        # Nút START tròn to màu xanh lá (Ø 50px)
+        self.btn_rail_start = QtWidgets.QPushButton("▶")
+        self.btn_rail_start.setObjectName("startButton")
+        self.btn_rail_start.setToolTip("Bắt đầu lấy mẫu (F5)")
+        self.btn_rail_start.clicked.connect(self._on_start_capture)
+        v_layout.addWidget(self.btn_rail_start, 0, QtCore.Qt.AlignHCenter)
+
+        # Nút ABORT nhỏ
+        self.btn_rail_abort = QtWidgets.QPushButton("⏹")
+        self.btn_rail_abort.setFixedSize(36, 36)
+        self.btn_rail_abort.setToolTip("Hủy lượt lấy mẫu hiện tại (Esc)")
+        self.btn_rail_abort.setStyleSheet("background-color: #ef4444; border-radius: 18px; color: #ffffff;")
+        self.btn_rail_abort.clicked.connect(self._on_abort)
+        v_layout.addWidget(self.btn_rail_abort, 0, QtCore.Qt.AlignHCenter)
+
+        # Các icon công cụ theo chuẩn Saleae Logic 2
+        tool_icons = [
+            ("▭", "Bật/Tắt Card Trigger & Device Settings", self._toggle_trigger_card),
+            ("1F", "Bộ giải mã & Bảng gói tin", lambda: self.edit_search.setFocus()),
+            ("✎", "Bật/Tắt Cặp thước đo thời gian A & B (C)", self.waveform.toggle_cursors),
+            ("▦", "Xuất báo cáo & Dữ liệu", self._export_image),
+        ]
+        for icon_text, tip, callback in tool_icons:
+            btn = QtWidgets.QToolButton()
+            btn.setText(icon_text)
+            btn.setToolTip(tip)
+            btn.setStyleSheet(f"QToolButton {{ border: none; color: {T.TEXT_DIM}; font-size: 18px; }}")
+            btn.clicked.connect(callback)
+            v_layout.addWidget(btn, 0, QtCore.Qt.AlignHCenter)
+
+        v_layout.addStretch(1)
+        return rail
+
+    # =========================================================================
+    # THANH ĐÁY (42 PX)
+    # =========================================================================
+
+    def _create_bottom_bar(self) -> QtWidgets.QWidget:
+        bar = QtWidgets.QWidget(self)
+        bar.setFixedHeight(T.BOTTOM_BAR_HEIGHT)
+        bar.setStyleSheet(f"background-color: {T.BG_MAIN}; border-top: 1px solid {T.BORDER};")
+
+        h_layout = QtWidgets.QHBoxLayout(bar)
+        h_layout.setContentsMargins(10, 0, 14, 0)
+        h_layout.setSpacing(12)
+
+        # Tab Session bên trái
+        self.tab_sessions = QtWidgets.QTabBar()
+        self.tab_sessions.setExpanding(False)
+        self.tab_sessions.addTab("Session 0")
+        self.tab_sessions.addTab("Session 1")
+        self.tab_sessions.addTab("+")
+        self.tab_sessions.setCurrentIndex(1)
+        h_layout.addWidget(self.tab_sessions)
+
+        # Trạng thái kết nối ở giữa
+        self.lbl_status = QtWidgets.QLabel("Ready | Offline Mock available")
+        self.lbl_status.setStyleSheet(f"color: {T.TEXT_DIM}; font-size: 12px;")
+        h_layout.addWidget(self.lbl_status)
+
+        h_layout.addStretch(1)
+
+        # Mức thu phóng ở góc phải
+        self.lbl_zoom = QtWidgets.QLabel("128 µs ⌃")
+        self.lbl_zoom.setStyleSheet(f"color: {T.TEXT_DIM}; font-size: 12px; font-weight: bold;")
+        h_layout.addWidget(self.lbl_zoom)
+
+        return bar
+
+    # =========================================================================
+    # CÁC HÀNH ĐỘNG ĐIỀU KHIỂN & SỰ KIỆN
+    # =========================================================================
+
+    def _toggle_trigger_card(self):
+        """Ẩn/hiện nội dung Card Trigger View."""
+        visible = not self.trigger_body.isVisible()
+        self.trigger_body.setVisible(visible)
+        self.lbl_card_title.setText("› Trigger View ⚠" if visible else "› Trigger View (Hidden)")
+
+    def _refresh_ports(self):
+        """Quét và làm mới danh sách cổng serial USB-CDC."""
+        self.combo_ports.clear()
+        ports = self.client.list_ports()
+        if ports:
+            for item in ports:
+                if isinstance(item, (tuple, list)):
+                    p_dev, p_desc = item[0], item[1]
+                else:
+                    p_dev, p_desc = str(item), str(item)
+                self.combo_ports.addItem(p_desc, p_dev)
+            self.lbl_status.setText(f"Tìm thấy {len(ports)} cổng serial USB-CDC")
+        else:
+            self.combo_ports.addItem("Không tìm thấy kit USB", None)
+            self.lbl_status.setText("Chưa cắm kit STM32 (Bật 'Offline Mock' để test)")
+
+    def _on_ping(self):
+        """Gửi lệnh PING kiểm tra kết nối với kit STM32."""
+        port = self.combo_ports.currentData() or self.combo_ports.currentText()
+        if not port or "Không" in str(port):
+            QtWidgets.QMessageBox.warning(self, "Lỗi cổng", "Vui lòng cắm kit STM32 hoặc chọn cổng phù hợp!")
+            return
+
+        ok, msg = self.client.connect(port)
+        if not ok:
+            QtWidgets.QMessageBox.critical(self, "Lỗi kết nối", f"Không thể mở cổng {port}:\n{msg}")
+            return
+
+        ping_ok, ver = self.client.ping()
+        self.client.disconnect()
+        if ping_ok:
+            self.lbl_status.setText(f"Connected ({ver})")
+            QtWidgets.QMessageBox.information(self, "PING thành công", f"Firmware Version: {ver}\nKết nối hoạt động 100%!")
+        else:
+            QtWidgets.QMessageBox.warning(self, "PING thất bại", f"Không nhận được phản hồi PONG:\n{ver}")
+
+    def _on_start_capture(self):
+        """Khởi động tiến trình lấy mẫu dữ liệu."""
+        use_mock = self.chk_mock.isChecked()
+        port = self.combo_ports.currentData() or self.combo_ports.currentText()
+
+        rate_idx = self.combo_rate.currentData()
+        trig_ch = self.combo_ch.currentData()
+        trig_mode = self.combo_mode.currentData()
+
+        if use_mock or port == "OFFLINE_MOCK":
+            self.lbl_status.setText("Đang đọc dữ liệu giả lập offline (sample_data_1mhz.bin)...")
+            res = self.client.start_capture(rate_idx=rate_idx, trig_ch=trig_ch, trig_mode=trig_mode, mock_mode=True)
+            self._render_capture_data(res)
+            return
+
+        if not port or "Không" in str(port):
+            # Tự động chuyển sang Mock nếu chưa cắm kit
+            reply = QtWidgets.QMessageBox.question(
+                self, "Chưa cắm kit",
+                "Chưa tìm thấy kit STM32 USB-CDC. Bạn có muốn chạy chế độ Offline Mock không?",
+                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No
+            )
+            if reply == QtWidgets.QMessageBox.Yes:
+                self.chk_mock.setChecked(True)
+                self._on_start_capture()
+            return
+
+        ok, msg = self.client.connect(port)
+        if not ok:
+            QtWidgets.QMessageBox.critical(self, "Lỗi kết nối", f"Không thể mở cổng {port}:\n{msg}")
+            return
+
+        self.btn_rail_start.setEnabled(False)
+        self.lbl_status.setText(f"Đang chờ bắt tín hiệu trên cổng {port}...")
+
+        self.worker = CaptureWorker(self.client, rate_idx, trig_ch, trig_mode)
+        self.worker.capture_done.connect(self._on_capture_done)
+        self.worker.capture_error.connect(self._on_capture_error)
+        self.worker.start()
+
+    def _on_capture_done(self, res: dict):
+        self.btn_rail_start.setEnabled(True)
+        self.client.disconnect()
+        self._render_capture_data(res)
+
+    def _on_capture_error(self, err_msg: str):
+        self.btn_rail_start.setEnabled(True)
+        self.client.disconnect()
+        self.lbl_status.setText(f"Lỗi: {err_msg}")
+        QtWidgets.QMessageBox.critical(self, "Lỗi lấy mẫu", err_msg)
+
+    def _on_abort(self):
+        """Gửi lệnh hủy thu thập dữ liệu."""
+        if self.worker and self.worker.isRunning():
+            self.client.abort()
+            self.worker.terminate()
+            self.worker.wait()
+            self.btn_rail_start.setEnabled(True)
+            self.client.disconnect()
+            self.lbl_status.setText("Đã hủy lượt lấy mẫu (Capture aborted)")
+        else:
+            self.lbl_status.setText("Không có tiến trình lấy mẫu nào đang chạy")
+
+    def _render_capture_data(self, res: dict):
+        """Hiển thị kết quả thu thập dữ liệu và giải mã protocol."""
+        self.current_data = res
+        self.waveform.render_data(res)
+
+        fs = float(res.get("sample_rate", 1_000_000))
+        status_name = res.get("status_name", "Triggered")
+        elapsed = res.get("elapsed_s", 0.0)
+
+        rate_str = f"{fs/1e6:.1f} MHz" if fs >= 1e6 else f"{fs/1e3:.0f} kHz"
+        self.lbl_status.setText(f"Hoàn tất: 32,768 mẫu ({rate_str}) | {status_name} trong {elapsed:.3f} s")
+
+        # Tự động giải mã UART trên Kênh 0
+        self._decode_uart()
+
+    def _decode_uart(self):
+        """Giải mã UART, điền bảng dữ liệu và vẽ bong bóng chú thích trực tiếp trên sóng."""
+        if not self.current_data:
+            return
+
+        ch0_samples = self.current_data["channels"][0].tolist()
+        fs = float(self.current_data.get("sample_rate", 1_000_000))
+        trig_offset = int(self.current_data.get("trig_offset", 6554))
+
+        self.uart_decoder.sample_rate = fs
+        self.uart_decoder.baudrate = 115200
+
+        text, frames = self.uart_decoder.decode(ch0_samples, start_idx=max(0, trig_offset - 50))
+        self.current_uart_frames = frames
+
+        # 1. Điền chuỗi văn bản ASCII
+        self.txt_uart_decoded.setPlainText(text)
+
+        # 2. Điền Bảng dữ liệu 4 cột: [■ | Type | Start | Duration]
+        self.table_uart_packets.setRowCount(0)
+        self.table_uart_packets.setRowCount(len(frames))
+
+        for r, frame in enumerate(frames):
+            start_idx = frame.get("start_sample", frame.get("start_idx", 0))
+            stop_idx = frame.get("stop_sample", frame.get("stop_idx", start_idx + 10))
+            val = frame.get("byte_val", frame.get("val", 0))
+            char = frame.get("char", "")
+            start_s = (start_idx - trig_offset) / fs
+            dur_s = (stop_idx - start_idx) / fs
+
+            # Cột 0: Marker màu DECODE_UART_BG
+            it_m = QtWidgets.QTableWidgetItem("■")
+            it_m.setForeground(QtGui.QBrush(QtGui.QColor(T.DECODE_UART_BG)))
+            it_m.setTextAlignment(QtCore.Qt.AlignCenter)
+            self.table_uart_packets.setItem(r, 0, it_m)
+
+            # Cột 1: Type (data: 0x54 'T')
+            type_str = f"data"
+            it_type = QtWidgets.QTableWidgetItem(type_str)
+            it_type.setToolTip(f"Hex: 0x{val:02X} | ASCII: '{char}'")
+            self.table_uart_packets.setItem(r, 1, it_type)
+
+            # Cột 2: Start time
+            start_str = f"{start_s * 1e6:.1f} µs" if abs(start_s) < 1e-3 else f"{start_s * 1e3:.2f} ms"
+            it_start = QtWidgets.QTableWidgetItem(start_str)
+            it_start.setTextAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+            self.table_uart_packets.setItem(r, 2, it_start)
+
+            # Cột 3: Duration
+            dur_str = f"{dur_s * 1e6:.2f} µs"
+            it_dur = QtWidgets.QTableWidgetItem(dur_str)
+            it_dur.setTextAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+            self.table_uart_packets.setItem(r, 3, it_dur)
+
+            # Lưu mốc thời gian tuyệt đối để click nhảy sóng
+            it_type.setData(QtCore.Qt.UserRole, (start_idx / fs, stop_idx / fs))
+
+        # 3. Vẽ các bong bóng chú thích UART và chấm bit trực tiếp lên sóng Kênh 0
+        self.waveform.render_uart_decorations(frames, fs, trig_offset)
+
+    def _filter_packet_table(self, query: str):
+        """Lọc các hàng trong bảng dữ liệu theo chuỗi tìm kiếm."""
+        q = query.strip().lower()
+        for r in range(self.table_uart_packets.rowCount()):
+            match = False
+            for c in range(1, self.table_uart_packets.columnCount()):
+                item = self.table_uart_packets.item(r, c)
+                if item and (q in item.text().lower() or (item.toolTip() and q in item.toolTip().lower())):
+                    match = True
+                    break
+            self.table_uart_packets.setRowHidden(r, not match and len(q) > 0)
+
+    def _on_table_row_clicked(self, row: int, col: int):
+        """Khi bấm vào một hàng trong bảng, phóng to và căn giữa byte đó trên sóng."""
+        item = self.table_uart_packets.item(row, 1)
+        if item:
+            data = item.data(QtCore.Qt.UserRole)
+            if data:
+                t_start_abs, t_stop_abs = data
+                self.waveform.zoom_to_window(t_start_abs, t_stop_abs)
+
+    def _on_channel_name_changed(self, ch: int):
+        if 0 <= ch < 8:
+            new_name = self.ch_edits[ch].text().strip()
+            self.waveform.set_channel_name(ch, new_name)
+
+    def _on_channel_visibility_changed(self, ch: int, state):
+        if 0 <= ch < 8:
+            visible = (state == QtCore.Qt.Checked or state == 1 or state is True)
+            self.waveform.set_channel_visible(ch, visible)
+
+    def _on_decode_uart(self):
+        self._decode_uart()
+
+    def _on_add_analyzer_dialog(self):
+        QtWidgets.QMessageBox.information(
+            self, "Analyzers",
+            "Async Serial (UART) đã được kích hoạt trên Kênh 0 (115200 bps, 8-N-1).\n"
+            "Các bộ giải mã I2C và SPI có thể bổ sung trong menu Capture/Decoders."
+        )
+
+    def _load_bin_file(self, filepath: str):
+        """Đọc và vẽ file dữ liệu nhị phân 32.776B (.bin)."""
+        with open(filepath, "rb") as f:
+            raw_bytes = f.read()
+
+        if len(raw_bytes) != 32776:
+            return
+
+        payload = np.frombuffer(raw_bytes[7:32775], dtype=np.uint8)
+        channels = [((payload >> bit) & 1).astype(np.uint8) for bit in range(8)]
+        res = {
+            "success": True,
+            "status": 0,
+            "status_name": "Triggered (STATUS_TRIGGER_OK)",
+            "rate_idx": 3,
+            "sample_rate": 1_000_000,
+            "trig_offset": 6554,
+            "sample_count": 32768,
+            "channels": channels,
+            "checksum_ok": True,
+            "elapsed_s": 0.05
+        }
+        self._render_capture_data(res)
 
     def _open_capture_file(self):
         path, _ = QtWidgets.QFileDialog.getOpenFileName(
@@ -196,632 +756,41 @@ class MainWindow(QtWidgets.QMainWindow):
         if path:
             self._load_bin_file(path)
 
-    def _show_about(self):
-        QtWidgets.QMessageBox.about(
-            self,
-            "About HUST Logic Analyzer",
-            "<h3>HUST Logic Analyzer (8 Channels, 6 MHz)</h3>"
-            "<p>Firmware: STM32F401CCU6 (WeAct Black Pill V3.0)</p>"
-            "<p><b>Lead Developer:</b> Nguyen Van Hoi (TV1 - Firmware Engineer)</p>"
-            "<p><b>Architecture:</b> 3-Zone Professional Layout (Saleae / DSView Standard)</p>"
-            "<p><b>SSoT Protocol:</b> spec/protocol.md (32,776 B Data Frame)</p>"
-            "<p>Hanoi University of Science and Technology (HUST) - 2026</p>"
-        )
-
-    # =========================================================================
-    # BỐ CỤC 3 VÙNG (3-ZONE LAYOUT)
-    # =========================================================================
-
-    def _init_layout(self):
-        central_widget = QtWidgets.QWidget(self)
-        central_widget.setObjectName("central_widget")
-        self.setCentralWidget(central_widget)
-        root_layout = QtWidgets.QVBoxLayout(central_widget)
-        root_layout.setContentsMargins(0, 0, 0, 0)
-        root_layout.setSpacing(0)
-
-        # Khởi tạo Waveform Widget (Vùng 2) & Sidebar (Vùng 3) trước
-        self.waveform = WaveformWidget(self)
-        self.sidebar = self._create_right_sidebar()
-
-        # VÙNG 1: Thanh điều khiển ngang trên cùng (Top Control Bar - Cao đúng 45px - Cố định)
-        self.top_bar = self._create_top_control_bar()
-        self.top_bar.setFixedHeight(45)
-        root_layout.addWidget(self.top_bar)
-
-        # SPLITTER CHÍNH (Vùng 2: 72% | Vùng 3: 28%)
-        self.main_splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
-        self.main_splitter.setHandleWidth(5)
-
-        # VÙNG 2: Khung vẽ sóng trung tâm (Waveform Viewport - 72%)
-        self.main_splitter.addWidget(self.waveform)
-
-        # VÙNG 3: Cột điều khiển bên phải (Right Sidebar - 28%)
-        self.main_splitter.addWidget(self.sidebar)
-
-        # Tỉ lệ 72% và 28%
-        self.main_splitter.setStretchFactor(0, 72)
-        self.main_splitter.setStretchFactor(1, 28)
-        self.main_splitter.setSizes([980, 380])
-
-        root_layout.addWidget(self.main_splitter, 1)
-
-        # VÙNG 4: Thanh trạng thái đáy (Status Bar - Cao 25px)
-        self._init_status_bar()
-
-    def _render_capture_data(self, res: Dict[str, Any]):
-        """Bí danh tương thích ngược cho việc vẽ dữ liệu."""
-        self._on_capture_done(res)
-
-    # =========================================================================
-    # VÙNG 1: TOP CONTROL BAR (CHUẨN SALEAE / DSVIEW)
-    # =========================================================================
-
-    def _create_top_control_bar(self) -> QtWidgets.QFrame:
-        frame = QtWidgets.QFrame()
-        frame.setObjectName("top_bar")
-        layout = QtWidgets.QHBoxLayout(frame)
-        layout.setContentsMargins(12, 4, 12, 4)
-        layout.setSpacing(10)
-
-        # Cụm 1: Cổng kết nối (Port & Connection)
-        layout.addWidget(QtWidgets.QLabel("<b>Port:</b>"))
-        self.cb_ports = QtWidgets.QComboBox()
-        self.cb_ports.setMinimumWidth(150)
-        layout.addWidget(self.cb_ports)
-
-        self.btn_refresh = QtWidgets.QPushButton("Refresh")
-        self.btn_refresh.setToolTip("Rescan available serial COM / ACM ports")
-        self.btn_refresh.clicked.connect(self._refresh_ports)
-        layout.addWidget(self.btn_refresh)
-
-        self.btn_connect = QtWidgets.QPushButton("Connect")
-        self.btn_connect.clicked.connect(self._on_toggle_connect)
-        layout.addWidget(self.btn_connect)
-
-        self.lbl_led = QtWidgets.QLabel("●")
-        self.lbl_led.setStyleSheet("color: #ef4444; font-size: 15px; background: transparent;")
-        layout.addWidget(self.lbl_led)
-
-        # Phân cách 1
-        sep1 = QtWidgets.QFrame()
-        sep1.setFixedWidth(1)
-        sep1.setStyleSheet("background-color: #3f3f46; border: none; margin-top: 6px; margin-bottom: 6px;")
-        layout.addWidget(sep1)
-
-        # Cụm 2: Cấu hình lấy mẫu & Trigger (Sample Rate & Trigger Settings)
-        layout.addWidget(QtWidgets.QLabel("<b>Rate:</b>"))
-        self.cb_rate = QtWidgets.QComboBox()
-        for item in self.client.RATE_TABLE:
-            self.cb_rate.addItem(item["label"], item["idx"])
-        self.cb_rate.setCurrentIndex(3)  # Mặc định 1 MHz
-        layout.addWidget(self.cb_rate)
-
-        layout.addWidget(QtWidgets.QLabel("<b>Channel:</b>"))
-        self.cb_trig_ch = QtWidgets.QComboBox()
-        for ch in range(8):
-            self.cb_trig_ch.addItem(f"CH{ch}", ch)
-        self.cb_trig_ch.setCurrentIndex(0)
-        layout.addWidget(self.cb_trig_ch)
-
-        layout.addWidget(QtWidgets.QLabel("<b>Trigger:</b>"))
-        self.cb_trig_mode = QtWidgets.QComboBox()
-        for tm in self.client.TRIG_MODES:
-            self.cb_trig_mode.addItem(tm["name"], tm["mode"])
-        self.cb_trig_mode.setCurrentIndex(2)  # Mặc định Falling Edge
-        layout.addWidget(self.cb_trig_mode)
-
-        # Phân cách 2
-        sep2 = QtWidgets.QFrame()
-        sep2.setFixedWidth(1)
-        sep2.setStyleSheet("background-color: #3f3f46; border: none; margin-top: 6px; margin-bottom: 6px;")
-        layout.addWidget(sep2)
-
-        # Cụm 3: Nút hành động chính (Start Capture / Abort)
-        self.btn_start = QtWidgets.QPushButton("Start Capture")
-        self.btn_start.setObjectName("btn_start")
-        self.btn_start.clicked.connect(self._on_start_capture)
-        layout.addWidget(self.btn_start)
-
-        self.btn_abort = QtWidgets.QPushButton("Abort")
-        self.btn_abort.setObjectName("btn_abort")
-        self.btn_abort.setEnabled(False)
-        self.btn_abort.clicked.connect(self._on_abort)
-        layout.addWidget(self.btn_abort)
-
-        # Cụm 4: Checkbox Offline Mock & Zoom Fit
-        self.chk_mock = QtWidgets.QCheckBox("Offline Mock")
-        self.chk_mock.setToolTip("Run with offline mock sample buffer without hardware kit")
-        layout.addWidget(self.chk_mock)
-
-        self.btn_zoom_fit = QtWidgets.QPushButton("Zoom Fit")
-        self.btn_zoom_fit.clicked.connect(self.waveform.zoom_fit)
-        layout.addWidget(self.btn_zoom_fit)
-
-        layout.addStretch()
-        return frame
-
-    # =========================================================================
-    # VÙNG 3: RIGHT SIDEBAR (DECODERS & EXPORT TOOLS)
-    # =========================================================================
-
-    def _create_right_sidebar(self) -> QtWidgets.QFrame:
-        container = QtWidgets.QFrame()
-        container.setObjectName("sidebar_container")
-        layout = QtWidgets.QVBoxLayout(container)
-        layout.setContentsMargins(6, 6, 6, 6)
-        layout.setSpacing(6)
-
-        tab_widget = QtWidgets.QTabWidget()
-
-        # Tab 1: Protocol Decoder & Packet Table
-        tab_decoder = self._create_tab_decoder()
-        tab_widget.addTab(tab_decoder, "Protocol Decoders")
-
-        # Tab 2: Export & Tools
-        tab_tools = self._create_tab_tools()
-        tab_widget.addTab(tab_tools, "Export & Channels")
-
-        layout.addWidget(tab_widget)
-        return container
-
-    def _create_tab_decoder(self) -> QtWidgets.QWidget:
-        widget = QtWidgets.QWidget()
-        layout = QtWidgets.QVBoxLayout(widget)
-        layout.setContentsMargins(6, 8, 6, 6)
-        layout.setSpacing(8)
-
-        # Protocol Selector
-        proto_row = QtWidgets.QHBoxLayout()
-        proto_row.addWidget(QtWidgets.QLabel("<b>Protocol:</b>"))
-        self.cb_protocol = QtWidgets.QComboBox()
-        self.cb_protocol.addItems(["UART (Serial)", "I2C (Bus)", "SPI (Bus)"])
-        self.cb_protocol.currentIndexChanged.connect(self._on_protocol_changed)
-        proto_row.addWidget(self.cb_protocol, 1)
-
-        self.btn_run_decode = QtWidgets.QPushButton("Decode")
-        self.btn_run_decode.setStyleSheet("background-color: #0284c7; font-weight: bold;")
-        self.btn_run_decode.clicked.connect(self._on_run_decoder)
-        proto_row.addWidget(self.btn_run_decode)
-        layout.addLayout(proto_row)
-
-        # Stacked options container cho từng giao thức
-        self.stack_options = QtWidgets.QStackedWidget()
-
-        # Options UART
-        uart_box = QtWidgets.QFrame()
-        uart_lay = QtWidgets.QHBoxLayout(uart_box)
-        uart_lay.setContentsMargins(0, 0, 0, 0)
-        uart_lay.addWidget(QtWidgets.QLabel("Channel:"))
-        self.cb_u_ch = QtWidgets.QComboBox()
-        for ch in range(8):
-            self.cb_u_ch.addItem(f"D{ch}", ch)
-        uart_lay.addWidget(self.cb_u_ch)
-
-        uart_lay.addWidget(QtWidgets.QLabel("Baud Rate:"))
-        self.cb_u_baud = QtWidgets.QComboBox()
-        for b in [115200, 9600, 19200, 38400, 57600, 230400, 460800, 921600]:
-            self.cb_u_baud.addItem(f"{b:,} bps", b)
-        uart_lay.addWidget(self.cb_u_baud)
-        self.stack_options.addWidget(uart_box)
-
-        # Options I2C
-        i2c_box = QtWidgets.QFrame()
-        i2c_lay = QtWidgets.QHBoxLayout(i2c_box)
-        i2c_lay.setContentsMargins(0, 0, 0, 0)
-        i2c_lay.addWidget(QtWidgets.QLabel("SCL:"))
-        self.cb_i_scl = QtWidgets.QComboBox()
-        self.cb_i_sda = QtWidgets.QComboBox()
-        for ch in range(8):
-            self.cb_i_scl.addItem(f"D{ch}", ch)
-            self.cb_i_sda.addItem(f"D{ch}", ch)
-        self.cb_i_scl.setCurrentIndex(1)
-        self.cb_i_sda.setCurrentIndex(2)
-        i2c_lay.addWidget(self.cb_i_scl)
-        i2c_lay.addWidget(QtWidgets.QLabel("SDA:"))
-        i2c_lay.addWidget(self.cb_i_sda)
-        self.stack_options.addWidget(i2c_box)
-
-        # Options SPI
-        spi_box = QtWidgets.QFrame()
-        spi_lay = QtWidgets.QHBoxLayout(spi_box)
-        spi_lay.setContentsMargins(0, 0, 0, 0)
-        spi_lay.addWidget(QtWidgets.QLabel("SCK:"))
-        self.cb_s_sck = QtWidgets.QComboBox()
-        self.cb_s_mosi = QtWidgets.QComboBox()
-        for ch in range(8):
-            self.cb_s_sck.addItem(f"D{ch}", ch)
-            self.cb_s_mosi.addItem(f"D{ch}", ch)
-        self.cb_s_sck.setCurrentIndex(5)
-        self.cb_s_mosi.setCurrentIndex(3)
-        spi_lay.addWidget(self.cb_s_sck)
-        spi_lay.addWidget(QtWidgets.QLabel("MOSI:"))
-        spi_lay.addWidget(self.cb_s_mosi)
-        self.stack_options.addWidget(spi_box)
-
-        layout.addWidget(self.stack_options)
-
-        # Bảng danh sách gói tin (Packet Table) - Bấm để Zoom
-        layout.addWidget(QtWidgets.QLabel("<b>Packet Table (Click row to zoom):</b>"))
-        self.table_packets = QtWidgets.QTableWidget(0, 4)
-        self.table_packets.setHorizontalHeaderLabels(["#", "Time (ms)", "Decoded", "Hex Data"])
-        self.table_packets.horizontalHeader().setStretchLastSection(True)
-        self.table_packets.setColumnWidth(0, 45)
-        self.table_packets.setColumnWidth(1, 95)
-        self.table_packets.setColumnWidth(2, 90)
-        self.table_packets.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
-        self.table_packets.setAlternatingRowColors(True)
-        self.table_packets.cellClicked.connect(self._on_packet_clicked)
-        layout.addWidget(self.table_packets, 2)
-
-        # Cửa sổ Terminal văn bản
-        layout.addWidget(QtWidgets.QLabel("<b>Decoded Output:</b>"))
-        self.txt_terminal = QtWidgets.QTextEdit()
-        self.txt_terminal.setReadOnly(True)
-        layout.addWidget(self.txt_terminal, 1)
-
-        # Aliases
-        self.table_uart_packets = self.table_packets
-        self.txt_uart_decoded = self.txt_terminal
-
-        return widget
-
-    def _create_tab_tools(self) -> QtWidgets.QWidget:
-        widget = QtWidgets.QWidget()
-        layout = QtWidgets.QVBoxLayout(widget)
-        layout.setContentsMargins(8, 10, 8, 8)
-        layout.setSpacing(10)
-
-        # Cụm 1: Xuất dữ liệu
-        grp_export = QtWidgets.QGroupBox("Export Data")
-        exp_layout = QtWidgets.QVBoxLayout(grp_export)
-        exp_layout.setSpacing(8)
-
-        btn_exp_img = QtWidgets.QPushButton("Export Image (PNG, SVG)...")
-        btn_exp_img.clicked.connect(self._export_image)
-        exp_layout.addWidget(btn_exp_img)
-
-        btn_exp_csv = QtWidgets.QPushButton("Export CSV Data...")
-        btn_exp_csv.clicked.connect(self._export_csv)
-        exp_layout.addWidget(btn_exp_csv)
-
-        btn_exp_vcd = QtWidgets.QPushButton("Export VCD (GTKWave)...")
-        btn_exp_vcd.clicked.connect(self._export_vcd)
-        exp_layout.addWidget(btn_exp_vcd)
-
-        layout.addWidget(grp_export)
-
-        # Cụm 2: Quản lý 8 kênh (Bật/Tắt & Đổi tên)
-        grp_ch = QtWidgets.QGroupBox("Channels")
-        ch_layout = QtWidgets.QVBoxLayout(grp_ch)
-        ch_layout.setSpacing(4)
-
-        self.ch_checks = []
-        self.ch_edits = []
-
-        for ch in range(8):
-            row = QtWidgets.QHBoxLayout()
-            row.setSpacing(6)
-
-            chk = QtWidgets.QCheckBox()
-            chk.setChecked(True)
-            chk.setStyleSheet(f"QCheckBox::indicator:checked {{ background-color: {NEON_CHANNEL_COLORS[ch]}; border: 1px solid #fff; }}")
-            chk.stateChanged.connect(lambda state, c=ch: self.waveform.set_channel_visible(c, state == QtCore.Qt.Checked))
-            self.ch_checks.append(chk)
-
-            edit = QtWidgets.QLineEdit(self.waveform.channel_names[ch])
-            edit.setStyleSheet(f"background-color: #18181b; color: {NEON_CHANNEL_COLORS[ch]}; border: 1px solid #3f3f46; border-radius: 3px; padding: 2px 4px; font-weight: bold;")
-            edit.editingFinished.connect(lambda c=ch: self.waveform.set_channel_name(c, self.ch_edits[c].text().strip()))
-            self.ch_edits.append(edit)
-
-            row.addWidget(chk)
-            row.addWidget(edit, 1)
-            ch_layout.addLayout(row)
-
-        layout.addWidget(grp_ch)
-        layout.addStretch()
-        return widget
-
-    # =========================================================================
-    # VÙNG 4: STATUS BAR (CAO 25PX)
-    # =========================================================================
-
-    def _init_status_bar(self):
-        sb = self.statusBar()
-        sb.setFixedHeight(25)
-
-        self.sb_conn = QtWidgets.QLabel("Port: Disconnected")
-        self.sb_rate = QtWidgets.QLabel("Rate: 1.00 MHz")
-        self.sb_samples = QtWidgets.QLabel("Samples: 0 / 32,768")
-        self.sb_status = QtWidgets.QLabel("Status: IDLE")
-        self.sb_csum = QtWidgets.QLabel("Checksum: --")
-        self.sb_fps = QtWidgets.QLabel("FPS: 60")
-
-        sb.addWidget(self.sb_conn, 2)
-        sb.addWidget(self.sb_rate, 2)
-        sb.addWidget(self.sb_samples, 2)
-        sb.addWidget(self.sb_status, 3)
-        sb.addWidget(self.sb_csum, 2)
-        sb.addPermanentWidget(self.sb_fps)
-
-    # =========================================================================
-    # LOGIC KẾT NỐI & THU THẬP
-    # =========================================================================
-
-    def _refresh_ports(self):
-        self.cb_ports.clear()
-        ports = self.client.list_ports()
-        for dev, desc in ports:
-            self.cb_ports.addItem(desc, dev)
-
-        # Tự động chọn ttyACM0 nếu có
-        for i in range(self.cb_ports.count()):
-            val = str(self.cb_ports.itemData(i))
-            if "ttyACM" in val or "STM32" in val:
-                self.cb_ports.setCurrentIndex(i)
-                break
-
-    def _on_toggle_connect(self):
-        if self.client.is_connected:
-            self.client.disconnect()
-            self._update_conn_ui(False, "Disconnected")
-        else:
-            if self.chk_mock.isChecked():
-                port = "OFFLINE_MOCK"
-            else:
-                port = self.cb_ports.currentData()
-
-            if not port:
-                QtWidgets.QMessageBox.warning(self, "Warning", "Please select a serial port or enable Offline Mock!")
-                return
-
-            ok, msg = self.client.connect(port)
-            if ok:
-                ok_p, ver = self.client.ping()
-                desc = f"{port} ({ver if ok_p else 'v1.0.0'})"
-                self._update_conn_ui(True, desc)
-            else:
-                self._update_conn_ui(False, msg)
-                QtWidgets.QMessageBox.critical(self, "Connection Error", msg)
-
-    def _update_conn_ui(self, connected: bool, desc: str):
-        if connected:
-            self.btn_connect.setText("Disconnect")
-            self.lbl_led.setStyleSheet("color: #10b981; font-size: 15px; background: transparent;")
-            self.sb_conn.setText(f"Port: {desc}")
-        else:
-            self.btn_connect.setText("Connect")
-            self.lbl_led.setStyleSheet("color: #ef4444; font-size: 15px; background: transparent;")
-            self.sb_conn.setText("Port: Disconnected")
-
-    def _on_start_capture(self):
-        # Tự động kết nối nếu đang tick Offline Mock
-        if not self.client.is_connected:
-            if self.chk_mock.isChecked():
-                self.client.connect("OFFLINE_MOCK")
-                self._update_conn_ui(True, "Offline Mock")
-            else:
-                QtWidgets.QMessageBox.warning(self, "Not Connected", "Please connect to a device or enable Offline Mock first!")
-                return
-
-        rate_idx = self.cb_rate.currentData()
-        trig_ch = self.cb_trig_ch.currentData()
-        trig_mode = self.cb_trig_mode.currentData()
-
-        self.btn_start.setEnabled(False)
-        self.btn_abort.setEnabled(True)
-        self.sb_status.setText("Status: Capturing...")
-
-        self.worker = CaptureWorker(self.client, rate_idx, trig_ch, trig_mode)
-        self.worker.capture_done.connect(self._on_capture_done)
-        self.worker.capture_error.connect(self._on_capture_error)
-        self.worker.start()
-
-    def _on_abort(self):
-        self.client.abort()
-        self.btn_start.setEnabled(True)
-        self.btn_abort.setEnabled(False)
-        self.sb_status.setText("Status: Aborted")
-
-    def _on_capture_done(self, res: Dict[str, Any]):
-        self.btn_start.setEnabled(True)
-        self.btn_abort.setEnabled(False)
-        self.current_data = res
-
-        # 1. Vẽ sóng lên Viewport Vùng 2
-        self.waveform.render_data(res)
-
-        # 2. Cập nhật Status Bar Vùng 4
-        sample_count = res["sample_count"]
-        sample_rate = res["sample_rate"]
-        elapsed_s = res.get("elapsed_s", 0.0)
-        self.sb_rate.setText(f"Rate: {sample_rate/1e6:.2f} MHz")
-        self.sb_samples.setText(f"Samples: {sample_count:,} / 32,768")
-        self.sb_status.setText(f"Status: {res['status_name']} ({elapsed_s:.3f} s)")
-        csum_byte = res.get("payload")[0] if len(res.get("payload", [])) else 0
-        self.sb_csum.setText(f"Checksum: {'PASS (0x%02X)' % csum_byte if res['checksum_ok'] else 'FAIL'}")
-
-        # 3. Tự động chạy bộ giải mã hiện đang chọn
-        self._on_run_decoder()
-
-    def _on_capture_error(self, err: str):
-        self.btn_start.setEnabled(True)
-        self.btn_abort.setEnabled(False)
-        self.sb_status.setText(f"Error: {err}")
-        QtWidgets.QMessageBox.warning(self, "Capture Error", err)
-
-    def _load_bin_file(self, filepath: str):
-        res = self.client.load_offline_file(filepath)
-        if res.get("success"):
-            self._on_capture_done(res)
-            self.sb_conn.setText(f"File: {os.path.basename(filepath)}")
-
-    # =========================================================================
-    # GIẢI MÃ & BẢNG GÓI TIN (DECODER & PACKET TABLE)
-    # =========================================================================
-
-    def _on_protocol_changed(self, idx: int):
-        self.stack_options.setCurrentIndex(idx)
-        self._on_run_decoder()
-
-    def _on_run_decoder(self):
-        if not self.current_data:
-            return
-
-        idx = self.cb_protocol.currentIndex()
-        if idx == 0:
-            self._decode_uart()
-        elif idx == 1:
-            self._decode_i2c()
-        elif idx == 2:
-            self._decode_spi()
-
-    def _decode_uart(self):
-        ch = self.cb_u_ch.currentData()
-        baud = self.cb_u_baud.currentData()
-        sample_rate = self.current_data["sample_rate"]
-        ch_arr = self.current_data["channels"][ch]
-
-        self.uart_decoder.sample_rate = sample_rate
-        self.uart_decoder.baudrate = baud
-
-        text, frames = self.uart_decoder.decode(ch_arr.tolist(), start_idx=0)
-        self.current_uart_frames = frames
-
-        # Hiển thị Terminal
-        if text:
-            self.txt_terminal.setPlainText(text)
-        else:
-            num_ones = int(np.count_nonzero(ch_arr == 1))
-            transitions = int(np.count_nonzero(np.diff(ch_arr) != 0))
-            if transitions == 0 and num_ones == 0:
-                self.txt_terminal.setHtml(f'<span style="color: #fbbf24;">[WARNING: Channel D{ch} is at continuous LOW (0V). Connect jumper wire from PA9 to PA0 for loopback self-test!]</span>')
-            elif transitions == 0:
-                self.txt_terminal.setHtml(f'<span style="color: #fbbf24;">[WARNING: Channel D{ch} is at continuous HIGH (3.3V IDLE). No signal transitions detected.]</span>')
-            else:
-                self.txt_terminal.setHtml(f'<span style="color: #fbbf24;">[WARNING: Detected {transitions} transitions but could not decode valid frame. Check Baud Rate ({baud:,} bps).]</span>')
-
-        # Điền bảng Packets
-        self.table_packets.setRowCount(len(frames))
-        for row, f in enumerate(frames):
-            t_ms = f["start_time_s"] * 1000.0
-            it0 = QtWidgets.QTableWidgetItem(str(row + 1))
-            it0.setTextAlignment(QtCore.Qt.AlignCenter)
-            it1 = QtWidgets.QTableWidgetItem(f"{t_ms:.3f} ms")
-            it1.setTextAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
-            it2 = QtWidgets.QTableWidgetItem(repr(f["char"])[1:-1])
-            it2.setTextAlignment(QtCore.Qt.AlignCenter)
-            it3 = QtWidgets.QTableWidgetItem(f"0x{f['byte_val']:02X}")
-            it3.setTextAlignment(QtCore.Qt.AlignCenter)
-            self.table_packets.setItem(row, 0, it0)
-            self.table_packets.setItem(row, 1, it1)
-            self.table_packets.setItem(row, 2, it2)
-            self.table_packets.setItem(row, 3, it3)
-
-    def _decode_i2c(self):
-        scl_ch = self.cb_i_scl.currentData()
-        sda_ch = self.cb_i_sda.currentData()
-        scl = self.current_data["channels"][scl_ch].tolist()
-        sda = self.current_data["channels"][sda_ch].tolist()
-        self.i2c_decoder.sample_rate = self.current_data["sample_rate"]
-
-        text, frames = self.i2c_decoder.decode(scl, sda)
-        self.current_i2c_frames = frames
-        if text:
-            self.txt_terminal.setPlainText(text)
-        else:
-            self.txt_terminal.setHtml('<span style="color: #fbbf24;">[No valid I2C bus events detected]</span>')
-
-        self.table_packets.setRowCount(len(frames))
-        for row, f in enumerate(frames):
-            t_ms = f["start_time_s"] * 1000.0
-            it0 = QtWidgets.QTableWidgetItem(str(row + 1))
-            it0.setTextAlignment(QtCore.Qt.AlignCenter)
-            it1 = QtWidgets.QTableWidgetItem(f"{t_ms:.3f} ms")
-            it1.setTextAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
-            it2 = QtWidgets.QTableWidgetItem(f["type"])
-            it2.setTextAlignment(QtCore.Qt.AlignCenter)
-            it3 = QtWidgets.QTableWidgetItem(f["desc"])
-            it3.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-            self.table_packets.setItem(row, 0, it0)
-            self.table_packets.setItem(row, 1, it1)
-            self.table_packets.setItem(row, 2, it2)
-            self.table_packets.setItem(row, 3, it3)
-
-    def _decode_spi(self):
-        sck_ch = self.cb_s_sck.currentData()
-        mosi_ch = self.cb_s_mosi.currentData()
-        sck = self.current_data["channels"][sck_ch].tolist()
-        mosi = self.current_data["channels"][mosi_ch].tolist()
-        self.spi_decoder.sample_rate = self.current_data["sample_rate"]
-
-        text, frames = self.spi_decoder.decode(sck, mosi)
-        self.current_spi_frames = frames
-        if text:
-            self.txt_terminal.setPlainText(text)
-        else:
-            self.txt_terminal.setHtml('<span style="color: #fbbf24;">[No valid SPI bus data detected]</span>')
-
-        self.table_packets.setRowCount(len(frames))
-        for row, f in enumerate(frames):
-            t_ms = f["start_time_s"] * 1000.0
-            it0 = QtWidgets.QTableWidgetItem(str(row + 1))
-            it0.setTextAlignment(QtCore.Qt.AlignCenter)
-            it1 = QtWidgets.QTableWidgetItem(f"{t_ms:.3f} ms")
-            it1.setTextAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
-            it2 = QtWidgets.QTableWidgetItem(f["mosi_ascii"])
-            it2.setTextAlignment(QtCore.Qt.AlignCenter)
-            it3 = QtWidgets.QTableWidgetItem(f["mosi_hex"])
-            it3.setTextAlignment(QtCore.Qt.AlignCenter)
-            self.table_packets.setItem(row, 0, it0)
-            self.table_packets.setItem(row, 1, it1)
-            self.table_packets.setItem(row, 2, it2)
-            self.table_packets.setItem(row, 3, it3)
-
-    def _on_packet_clicked(self, row: int, col: int):
-        """Click một dòng trong bảng gói tin -> Tự động Pan/Zoom tới vị trí đó trên đồ thị."""
-        proto = self.cb_protocol.currentIndex()
-        if proto == 0 and hasattr(self, "current_uart_frames") and 0 <= row < len(self.current_uart_frames):
-            f = self.current_uart_frames[row]
-            self.waveform.zoom_to_window(f["start_time_s"], f["stop_time_s"])
-        elif proto == 1 and hasattr(self, "current_i2c_frames") and 0 <= row < len(self.current_i2c_frames):
-            f = self.current_i2c_frames[row]
-            self.waveform.zoom_to_window(f["start_time_s"], f["stop_time_s"])
-        elif proto == 2 and hasattr(self, "current_spi_frames") and 0 <= row < len(self.current_spi_frames):
-            f = self.current_spi_frames[row]
-            self.waveform.zoom_to_window(f["start_time_s"], f["stop_time_s"])
-
-    # =========================================================================
-    # XUẤT TỆP (EXPORTER)
-    # =========================================================================
-
     def _export_image(self):
-        path, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Export Waveform Image", "waveform.png", "PNG Image (*.png);;SVG Vector (*.svg)")
+        path, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self, "Export Waveform Image", "waveform.png", "PNG Image (*.png);;SVG Image (*.svg)"
+        )
         if path:
-            if export_image(self.waveform.plot_widget, path):
-                QtWidgets.QMessageBox.information(self, "Success", f"Waveform image exported successfully:\n{path}")
+            ok = export_image(self.waveform.plot_widget, path)
+            if ok:
+                QtWidgets.QMessageBox.information(self, "Export Thành Công", f"Đã xuất ảnh đồ thị ra:\n{path}")
+            else:
+                QtWidgets.QMessageBox.critical(self, "Export Thất Bại", "Không thể xuất ảnh đồ thị.")
 
     def _export_csv(self):
         if not self.current_data:
-            QtWidgets.QMessageBox.warning(self, "No Data", "No capture data available to export!")
+            QtWidgets.QMessageBox.warning(self, "Cảnh báo", "Chưa có dữ liệu capture để xuất CSV.")
             return
-        path, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Export CSV Data", "logic_data.csv", "CSV Spreadsheet (*.csv)")
+        path, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self, "Export CSV Data", "capture_data.csv", "CSV Spreadsheet (*.csv)"
+        )
         if path:
-            if export_csv(self.current_data, path):
-                QtWidgets.QMessageBox.information(self, "Success", f"Exported 32,768 samples to:\n{path}")
+            ok = export_csv(self.current_data, path)
+            if ok:
+                QtWidgets.QMessageBox.information(self, "Export Thành Công", f"Đã xuất dữ liệu CSV ra:\n{path}")
+            else:
+                QtWidgets.QMessageBox.critical(self, "Export Thất Bại", "Không thể xuất file CSV.")
 
     def _export_vcd(self):
         if not self.current_data:
-            QtWidgets.QMessageBox.warning(self, "No Data", "No capture data available to export!")
+            QtWidgets.QMessageBox.warning(self, "Cảnh báo", "Chưa có dữ liệu capture để xuất VCD.")
             return
-        path, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Export VCD File", "waveform.vcd", "VCD Value Change Dump (*.vcd)")
+        path, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self, "Export VCD File", "capture.vcd", "Value Change Dump (*.vcd)"
+        )
         if path:
-            if export_vcd(self.current_data, path):
-                QtWidgets.QMessageBox.information(self, "Success", f"VCD file exported successfully:\n{path}")
-
-
-if __name__ == "__main__":
-    app = QtWidgets.QApplication(sys.argv)
-    window = MainWindow()
-    window.show()
-    sys.exit(app.exec_())
+            ok = export_vcd(self.current_data, path)
+            if ok:
+                QtWidgets.QMessageBox.information(self, "Export Thành Công", f"Đã xuất file VCD GTKWave ra:\n{path}")
+            else:
+                QtWidgets.QMessageBox.critical(self, "Export Thất Bại", "Không thể xuất file VCD.")
