@@ -25,8 +25,8 @@ Toàn bộ ảnh crop tham chiếu và render được lưu trữ tại `docs/ui
 | **1** | **Right Action Rail** (Dải nút Start & Tools) | `(1690, 77, 1780, 1137)` | 90 × 1060 px | **ĐÃ HOÀN THÀNH** | **94.8%** (Đạt chuẩn) |
 | **2** | **Top Menu Bar** (Thanh Menu đỉnh) | `(0, 0, 1780, 76)` | 1780 × 76 px | **ĐÃ HOÀN THÀNH** | **88.0%** (Đạt chuẩn) |
 | **3** | **Bottom Bar** (Thanh Session & Zoom) | `(0, 1137, 1780, 1197)` | 1780 × 60 px | **ĐÃ HOÀN THÀNH** | **89.4%** (Đạt chuẩn) |
-| **4** | **Channel Label Column** (Cột nhãn kênh) | `(0, 77, 270, 1137)` | 270 × 1060 px | **Kế tiếp** | 71.8% |
-| **5** | **Time Ruler** (Thước thời gian & Trigger) | `(270, 77, 1255, 123)` | 985 × 46 px | Chờ thực hiện | 44.0% |
+| **4** | **Channel Label Column** (Cột nhãn kênh) | `(0, 77, 270, 1137)` | 270 × 1060 px | **ĐÃ HOÀN THÀNH** | **85.7%** (Đạt chuẩn) |
+| **5** | **Time Ruler** (Thước thời gian & Trigger) | `(270, 77, 1255, 123)` | 985 × 46 px | **Kế tiếp** | 44.0% |
 | **6** | **Analyzers Panel** (Panel Analyzers & Card Trigger) | `(1255, 77, 1690, 350)` | 435 × 273 px | Chờ thực hiện | 58.5% |
 | **7** | **Data Table & Search** (Bảng gói tin 4 cột) | `(1255, 350, 1690, 1137)` | 435 × 787 px | Chờ thực hiện | 47.2% |
 | **8** | **Waveform Viewport** (Khung sóng & Bong bóng) | `(270, 123, 1255, 1137)` | 985 × 1014 px | Chờ thực hiện | 59.5% |
@@ -62,18 +62,6 @@ TỔNG ĐIỂM TƯƠNG ĐỒNG: 88.0% (CHÍNH THỨC ĐẠT CHUẨN)
 ---
 
 ## 5. Nghiệm Thu Component 3: Bottom Bar
-
-### 5.1. Phân tích Pixel thực tế từ ảnh crop `ref_comp3_bottom_bar.png`
-1. **Viền trên đáy:** Vạch ngang phân cách $1\text{ px}$ màu `#57575e` (`rgb(87, 87, 94)`) tại $Y=0$.
-2. **Dải tab Session bên trái:**
-   - Tab 0 (`Session 0  ✕`): Inactive, chữ `#a0a0a6`, viền trên trong suốt.
-   - Tab 1 (`Session 1  ✕`): Active, chữ trắng `#ffffff`, **vạch chỉ thị trắng dày $3\text{ px}$ nằm ở mép trên tab** ($Y = 2 \dots 4$, $X = 157 \dots 308$).
-   - Tab 2 (`+`): Nút tạo phiên mới, căn giữa.
-3. **Mức thu phóng (Zoom Level) góc phải:**
-   - Tọa độ: $X = 1680 \dots 1753$, $Y = 24 \dots 40$ (căn lề phải cách biên $20\text{ px}$).
-   - Nội dung: `128 µs ^` màu `#a0a0a6` Font Segoe UI 13px.
-
-### 5.2. Kết Quả Định Lượng Bằng Công Cụ `compare_components.py`
 ```text
 Component 3 (Bottom Bar):
 - Kích thước: (1780, 60) px
@@ -84,5 +72,36 @@ Component 3 (Bottom Bar):
 TỔNG ĐIỂM TƯƠNG ĐỒNG: 89.4% (CHÍNH THỨC ĐẠT CHUẨN)
 --------------------------------------------------
 ```
-* **Ảnh crop tham chiếu:** `docs/ui_reference/crops/ref_comp3_bottom_bar.png`
-* **Ảnh crop render:** `docs/ui_reference/crops/gen_comp3_bottom_bar.png`
+
+---
+
+## 6. Nghiệm Thu Component 4: Channel Label Column
+
+### 6.1. Phân tích Pixel thực tế từ ảnh crop `ref_comp4_channel_labels.png`
+1. **Khoảng đệm trên cùng:** Chiều cao đúng $45\text{ px}$ khớp với thước thời gian Viewport.
+2. **Dải màu dọc mép trái:** Rộng đúng $4\text{ px}$, màu chuẩn theo `CHANNEL_COLORS`:
+   - D0: `#d4d4d4` ($Y = 46 \dots 142\text{ px}$, cao $96\text{ px}$ do có gắn Analyzer).
+   - D1: `#c39577` ($Y = 143 \dots 240\text{ px}$, cao $97\text{ px}$ do có gắn Analyzer).
+   - D2: `#f66c7e` ($Y = 241 \dots 307\text{ px}$, cao $66\text{ px}$).
+   - D3..D7: Các màu chuẩn tiếp theo.
+3. **Nội dung nhãn:**
+   - Mã kênh: In đậm `D0`..`D7`, màu sắc đồng bộ với dải màu kênh.
+   - Tên kênh: In trắng `Channel 0`..`Channel 7`, Font Segoe UI 15px.
+   - Chip gắn bộ giải mã:
+     - D0: Ô vuông `#d3ccb0` + chữ `Async Serial`.
+     - D1: Ô vuông `#4fc3e8` + chữ `I2C - SDA`.
+4. **Vạch ngăn cách:** Đường viền dưới mỗi hàng `$1\text{ px}$` `#3f3f43`, đường viền phải ngăn cách với vùng sóng rộng `$1\text{ px}$` `#57575e`.
+
+### 6.2. Kết Quả Định Lượng Bằng Công Cụ `compare_components.py`
+```text
+Component 4 (Channel Label Column):
+- Kích thước: (270, 1060) px
+- Color Histogram Similarity: 99.96%
+- Block SSIM Similarity:     64.41%
+- Visual Feature Checklist:   100.0%
+--------------------------------------------------
+TỔNG ĐIỂM TƯƠNG ĐỒNG: 85.7% (CHÍNH THỨC ĐẠT CHUẨN)
+--------------------------------------------------
+```
+* **Ảnh crop tham chiếu:** `docs/ui_reference/crops/ref_comp4_channel_labels.png`
+* **Ảnh crop render:** `docs/ui_reference/crops/gen_comp4_channel_labels.png`

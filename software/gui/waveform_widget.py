@@ -160,7 +160,7 @@ class WaveformWidget(QtWidgets.QWidget):
         # ---------------------------------------------------------------------
         self.lab = QtWidgets.QWidget(self)
         self.lab.setFixedWidth(T.LABEL_COLUMN_WIDTH)
-        self.lab.setStyleSheet(f"background-color: {T.BG_MAIN};")
+        self.lab.setStyleSheet(f"QWidget {{ background-color: {T.BG_MAIN}; border-right: 1px solid {T.GRID}; }}")
 
         self.vl_labels = QtWidgets.QVBoxLayout(self.lab)
         self.vl_labels.setContentsMargins(0, 0, 0, 0)
@@ -169,7 +169,7 @@ class WaveformWidget(QtWidgets.QWidget):
         # Khoảng đệm tương ứng chiều cao thước thời gian trên cùng (32 px)
         self.top_spacer = QtWidgets.QWidget()
         self.top_spacer.setFixedHeight(T.AXIS_HEIGHT)
-        self.top_spacer.setStyleSheet(f"background-color: {T.BG_MAIN}; border-bottom: 1px solid {T.BORDER};")
+        self.top_spacer.setStyleSheet(f"background-color: {T.BG_MAIN}; border-bottom: 1px solid {T.GRID};")
         self.vl_labels.addWidget(self.top_spacer)
 
         # 8 khung nhãn kênh
@@ -189,19 +189,25 @@ class WaveformWidget(QtWidgets.QWidget):
                 QLabel {{ border: none; background: transparent; }}
             """)
             f_lay = QtWidgets.QVBoxLayout(f)
-            f_lay.setContentsMargins(14, 6, 8, 6)
-            f_lay.setSpacing(2)
+            f_lay.setContentsMargins(14, 8, 8, 8)
+            f_lay.setSpacing(4)
 
             top_lbl = QtWidgets.QLabel(
                 f"<span style='color:{col};font-weight:bold;font-size:11px'>D{i}</span>"
-                f"&nbsp;&nbsp;&nbsp;<span style='font-size:14px;font-weight:bold;color:{T.TEXT}'>Channel {i}</span>"
+                f"&nbsp;&nbsp;&nbsp;<span style='font-size:14px;font-weight:bold;color:{T.TEXT};font-family:\"Segoe UI\";'>Channel {i}</span>"
             )
-            f_lay.addWidget(top_lbl, 0, QtCore.Qt.AlignTop if i == 0 else QtCore.Qt.AlignVCenter)
+            f_lay.addWidget(top_lbl, 0, QtCore.Qt.AlignTop if i < 2 else QtCore.Qt.AlignVCenter)
             self.channel_labels_top.append(top_lbl)
 
-            # Chip hiển thị analyzer (gắn mặc định vào CH0: Async Serial)
+            # Chip hiển thị analyzer (CH0: Async Serial, CH1: I2C - SDA)
             if i == 0:
                 chip = QtWidgets.QLabel(f"<span style='color:{T.DECODE_UART_BG}'>■</span> Async Serial")
+                chip.setStyleSheet(f"color: {T.TEXT_DIM}; font-size: 11px;")
+                f_lay.addWidget(chip)
+                f_lay.addStretch(1)
+                self.channel_chips.append(chip)
+            elif i == 1:
+                chip = QtWidgets.QLabel(f"<span style='color:#4fc3e8'>■</span> I2C - SDA")
                 chip.setStyleSheet(f"color: {T.TEXT_DIM}; font-size: 11px;")
                 f_lay.addWidget(chip)
                 f_lay.addStretch(1)

@@ -169,30 +169,37 @@ class MainWindow(QtWidgets.QMainWindow):
         # cột nhãn
         lab = QtWidgets.QWidget()
         lab.setFixedWidth(px(P["label_w"]))
+        lab.setStyleSheet(f"QWidget {{ background-color: {T.BG_MAIN}; border-right: 1px solid {T.GRID}; }}")
         vl = QtWidgets.QVBoxLayout(lab)
         vl.setContentsMargins(0, 0, 0, 0)
         vl.setSpacing(0)
-        vl.addSpacing(axis_h)
+        top_space = QtWidgets.QWidget()
+        top_space.setFixedHeight(axis_h)
+        top_space.setStyleSheet(f"background-color: {T.BG_MAIN}; border-bottom: 1px solid {T.GRID};")
+        vl.addWidget(top_space)
         for i, h in enumerate(heights):
             f = QtWidgets.QFrame()
             f.setFixedHeight(h)
             col = T.CHANNEL_COLORS[i]
-            f.setStyleSheet(f"QFrame{{background:{T.BG_MAIN};border-left:{px(P['strip_w'])}px solid {col};"
-                            f"border-bottom:1px solid {T.BORDER};}} QLabel{{border:none;}}")
+            f.setStyleSheet(f"QFrame {{ background-color: {T.BG_MAIN}; border-left: {px(P['strip_w'])}px solid {col};"
+                            f" border-bottom: 1px solid {T.BORDER}; }} QLabel {{ border: none; background: transparent; }}")
             lay = QtWidgets.QVBoxLayout(f)
-            lay.setContentsMargins(px(14), px(6), 0, px(6))
-            lay.setSpacing(0)
-            if P.get("hdr_style"):
-                top = QtWidgets.QLabel(f"<span style='color:{col};font-size:{px(11)}px'>D{i}</span>"
-                                       f"&nbsp;&nbsp;&nbsp;<span style='font-size:{px(15)}px'>Channel {i}</span>")
-            else:
-                top = QtWidgets.QLabel(f"<span style='color:{col}'>CH{i}</span> &nbsp; Channel {i}")
-            lay.addWidget(top, 0, QtCore.Qt.AlignTop if i == 0 else QtCore.Qt.AlignVCenter)
+            lay.setContentsMargins(px(14), px(8), 0, px(8))
+            lay.setSpacing(px(4))
+            top = QtWidgets.QLabel(f"<span style='color:{col};font-weight:bold;font-size:{px(11)}px'>D{i}</span>"
+                                   f"&nbsp;&nbsp;&nbsp;<span style='font-size:{px(15)}px;color:#ffffff;font-family:\"Segoe UI\";'>Channel {i}</span>")
+            lay.addWidget(top, 0, QtCore.Qt.AlignTop if i < 2 else QtCore.Qt.AlignVCenter)
             if i == 0:
                 chip = QtWidgets.QLabel(f"<span style='color:{T.DECODE_UART_BG}'>&#9632;</span> Async Serial")
                 chip.setStyleSheet(f"color:{T.TEXT_DIM};font-size:{px(11)}px;")
                 lay.addWidget(chip)
                 lay.addStretch(1)
+            elif i == 1:
+                chip = QtWidgets.QLabel(f"<span style='color:#4fc3e8'>&#9632;</span> I2C - SDA")
+                chip.setStyleSheet(f"color:{T.TEXT_DIM};font-size:{px(11)}px;")
+                lay.addWidget(chip)
+                lay.addStretch(1)
+            vl.addWidget(f)
             vl.addWidget(f)
         vl.addStretch(1)
         hl.addWidget(lab)
