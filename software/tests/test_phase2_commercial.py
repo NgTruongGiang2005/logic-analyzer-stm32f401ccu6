@@ -30,9 +30,11 @@ from software.decoders.spi_decoder import SPIDecoder
 from software.gui.cursors import CursorManager, CursorHUDWidget, format_time, format_freq
 from software.utils.exporter import export_image, export_csv, export_vcd
 from software.gui.main_window import MainWindow
+from software.qt_bootstrap import configure_qt_plugins
 
 
 def test_phase2():
+    configure_qt_plugins()
     print("==================================================")
     print("BẮT ĐẦU KIỂM THỬ TỰ ĐỘNG GIAI ĐOẠN 2 (CHUẨN THƯƠNG MẠI)")
     print("==================================================")
@@ -166,7 +168,7 @@ def test_phase2():
 
     print("\n==================================================")
     print("  [SUCCESS] 100% CÁC BÀI KIỂM THỬ GIAI ĐOẠN 2 ĐẠT PASS!")
-    print("  Phần mềm Desktop đã đạt chuẩn thương mại công nghiệp!")
+    print("  Kiểm thử phần mềm/offline đạt; chưa kiểm chứng phần cứng thật trong lượt chạy này.")
     print("==================================================")
 
 

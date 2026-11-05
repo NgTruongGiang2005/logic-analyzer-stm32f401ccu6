@@ -5,7 +5,7 @@ Quản lý cặp thước đo thời gian (Cursor A & Cursor B) kéo thả trự
 Tự động tính toán mốc thời gian t_A, t_B, khoảng cách Δt và tần số tương ứng f = 1/Δt (HUD).
 """
 
-from typing import Optional, Callable
+from typing import Optional, Callable, Tuple
 from PyQt5 import QtWidgets, QtCore, QtGui
 import pyqtgraph as pg
 

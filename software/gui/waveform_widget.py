@@ -14,6 +14,7 @@ Khung vẽ sóng logic 8 kênh (Waveform Viewport) theo chuẩn UI_SPEC.md và p
 
 from typing import Optional, Dict, Any, List, Tuple
 import numpy as np
+from html import escape
 from PyQt5 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg
 
@@ -138,6 +139,10 @@ class WaveformWidget(QtWidgets.QWidget):
 
         self.channel_names = list(DEFAULT_CHANNEL_NAMES)
         self.channel_visible = [True] * 8
+        self.channel_colors = list(T.CHANNEL_COLORS)
+        self.analyzer_channel = 0
+        self.analyzer_name = 'Async Serial'
+        self._decoration_args = None
         self.current_data: Optional[Dict[str, Any]] = None
         self.row_h = T.CHANNEL_ROW_HEIGHT
         self.dec_scale = T.DECODER_ROW_SCALE
@@ -168,7 +173,7 @@ class WaveformWidget(QtWidgets.QWidget):
 
         # Khoảng đệm tương ứng chiều cao thước thời gian trên cùng (32 px)
         self.top_spacer = QtWidgets.QWidget()
-        self.top_spacer.setFixedHeight(T.AXIS_HEIGHT)
+        self.top_spacer.setFixedHeight(T.AXIS_HEIGHT + T.HUD_HEIGHT)
         self.top_spacer.setStyleSheet(f"background-color: {T.BG_MAIN}; border-bottom: 1px solid {T.GRID};")
         self.vl_labels.addWidget(self.top_spacer)
 
@@ -199,21 +204,14 @@ class WaveformWidget(QtWidgets.QWidget):
             f_lay.addWidget(top_lbl, 0, QtCore.Qt.AlignTop if i < 2 else QtCore.Qt.AlignVCenter)
             self.channel_labels_top.append(top_lbl)
 
-            # Chip hiển thị analyzer (CH0: Async Serial, CH1: I2C - SDA)
+            chip = QtWidgets.QLabel('')
+            chip.setStyleSheet(f"color: {T.TEXT_DIM}; font-size: 11px;")
+            chip.setVisible(i == 0)
             if i == 0:
-                chip = QtWidgets.QLabel(f"<span style='color:{T.DECODE_UART_BG}'>■</span> Async Serial")
-                chip.setStyleSheet(f"color: {T.TEXT_DIM}; font-size: 11px;")
-                f_lay.addWidget(chip)
-                f_lay.addStretch(1)
-                self.channel_chips.append(chip)
-            elif i == 1:
-                chip = QtWidgets.QLabel(f"<span style='color:#4fc3e8'>■</span> I2C - SDA")
-                chip.setStyleSheet(f"color: {T.TEXT_DIM}; font-size: 11px;")
-                f_lay.addWidget(chip)
-                f_lay.addStretch(1)
-                self.channel_chips.append(chip)
-            else:
-                self.channel_chips.append(None)
+                chip.setText('Async Serial')
+            f_lay.addWidget(chip)
+            f_lay.addStretch(1)
+            self.channel_chips.append(chip)
 
             self.channel_frames.append(f)
             self.vl_labels.addWidget(f)
@@ -228,9 +226,10 @@ class WaveformWidget(QtWidgets.QWidget):
         self.time_axis.setHeight(T.AXIS_HEIGHT)
         self.time_axis.setPen(pg.mkPen(T.GRID))
         self.time_axis.setTextPen(pg.mkPen(T.TEXT))
-        self.time_axis.setTickSpacing(1e-4, 5e-5)
+        # Axis chooses SI tick spacing automatically as the user zooms.
 
         self.plot_widget = pg.PlotWidget(background=T.BG_MAIN, axisItems={"top": self.time_axis})
+        self.plot_widget.installEventFilter(self)
         self.plot_item = self.plot_widget.getPlotItem()
         self.plot_item.hideAxis("left")
         self.plot_item.hideAxis("bottom")
@@ -242,6 +241,7 @@ class WaveformWidget(QtWidgets.QWidget):
 
         self.vb = self.plot_item.getViewBox()
         self.vb.setMouseEnabled(x=True, y=False)
+        self.vb.sigXRangeChanged.connect(self._update_time_grid)
         self.vb.invertY(True)  # D0 ở trên, D7 ở dưới
 
         # Đường phân cách hàng (Horizontal row separators)
@@ -303,14 +303,20 @@ class WaveformWidget(QtWidgets.QWidget):
         self.cursor_a.sigPositionChanged.connect(self._on_cursor_moved)
         self.cursor_b.sigPositionChanged.connect(self._on_cursor_moved)
 
-        main_layout.addWidget(self.plot_widget, 1)
+        plot_container = QtWidgets.QWidget(self)
+        plot_layout = QtWidgets.QVBoxLayout(plot_container)
+        plot_layout.setContentsMargins(0, 0, 0, 0)
+        plot_layout.setSpacing(0)
+        main_layout.addWidget(plot_container, 1)
 
         # ---------------------------------------------------------------------
         # 3. FLOATING HUD (Góc trên bên phải)
         # ---------------------------------------------------------------------
-        self.hud = WaveformHUD(self.plot_widget)
+        self.hud = WaveformHUD(plot_container)
+        self.hud.setFixedHeight(T.HUD_HEIGHT)
         self.hud_widget = self.hud
-        self.hud.raise_()
+        plot_layout.addWidget(self.hud)
+        plot_layout.addWidget(self.plot_widget, 1)
         self._update_hud()
 
         # Tính toán hình học ban đầu
@@ -320,10 +326,14 @@ class WaveformWidget(QtWidgets.QWidget):
         super().resizeEvent(event)
         self._recompute_row_heights()
 
-        # Căn góc trên bên phải cho HUD
-        hud_w = self.hud.sizeHint().width()
-        hud_h = self.hud.sizeHint().height()
-        self.hud.setGeometry(self.plot_widget.width() - hud_w - 20, 10, hud_w, hud_h)
+        # HUD has its own layout row, so it cannot hide the time ruler.
+
+    def eventFilter(self, watched, event):
+        # Nested layouts can resize the plot after WaveformWidget.resizeEvent.
+        if (watched is getattr(self, 'plot_widget', None) and event.type() == QtCore.QEvent.Resize
+                and hasattr(self, 'curves') and len(self.channel_frames) == 8):
+            self._recompute_row_heights()
+        return super().eventFilter(watched, event)
 
     def _recompute_row_heights(self):
         """Tính toán chiều cao hàng co giãn lấp đầy chiều dọc theo UI_SPEC.md."""
@@ -331,12 +341,11 @@ class WaveformWidget(QtWidgets.QWidget):
         if avail_h <= 0:
             avail_h = self.height() - T.AXIS_HEIGHT
 
-        # Chiều cao hàng cơ sở = avail / (7 + scale)
-        row_h = int(avail_h / (7 + self.dec_scale))
-        self.row_h = max(row_h, T.CHANNEL_ROW_HEIGHT)
-
-        self.row_heights = [int(self.row_h * self.dec_scale)] + [self.row_h] * 7
-        total_h = sum(self.row_heights)
+        weights = [(self.dec_scale if ch == self.analyzer_channel else 1.0)
+                   if self.channel_visible[ch] else 0.0 for ch in range(8)]
+        self.row_h = max(int(avail_h / max(1, sum(weights))), T.CHANNEL_ROW_HEIGHT)
+        self.row_heights = [int(self.row_h * w) for w in weights]
+        total_h = max(1, sum(self.row_heights))
 
         # Cập nhật chiều cao các frame cột nhãn
         for i, h in enumerate(self.row_heights):
@@ -348,11 +357,14 @@ class WaveformWidget(QtWidgets.QWidget):
         # Cập nhật vị trí vạch ngăn và nhãn H/L
         y0 = 0
         for i, h in enumerate(self.row_heights):
-            top = y0 + (h - self.row_h) if i == 0 else y0
+            top = y0 + (h - self.row_h) if i == self.analyzer_channel else y0
             hi = top + self.row_h * 0.22
             lo = top + self.row_h * 0.78
 
-            # Vạch ngăn
+            # Keep labels and curves aligned when channels are hidden.
+            self.row_separator_lines[i].setVisible(self.channel_visible[i])
+            for item in self.hl_text_items[i]:
+                item.setVisible(self.channel_visible[i])
             self.row_separator_lines[i].setValue(y0 + h)
 
             # Nhãn H/L
@@ -365,15 +377,17 @@ class WaveformWidget(QtWidgets.QWidget):
         # Nếu đang có dữ liệu, vẽ lại dữ liệu với chiều cao hàng mới
         if self.current_data:
             self._update_curve_data()
+        if self._decoration_args:
+            self.render_uart_decorations(*self._decoration_args)
 
     def set_channel_name(self, ch: int, name: str):
         """Đổi tên hiển thị của kênh số."""
         if 0 <= ch < 8:
             self.channel_names[ch] = name
-            col = T.CHANNEL_COLORS[ch]
+            col = self.channel_colors[ch]
             self.channel_labels_top[ch].setText(
                 f"<span style='color:{col};font-weight:bold;font-size:11px'>D{ch}</span>"
-                f"&nbsp;&nbsp;&nbsp;<span style='font-size:14px;font-weight:bold;color:{T.TEXT}'>{name}</span>"
+                f"&nbsp;&nbsp;&nbsp;<span style='font-size:14px;font-weight:bold;color:{T.TEXT}'>{escape(name)}</span>"
             )
 
     def set_channel_visible(self, ch: int, visible: bool):
@@ -382,6 +396,7 @@ class WaveformWidget(QtWidgets.QWidget):
             self.channel_visible[ch] = visible
             self.curves[ch].setVisible(visible)
             self.channel_frames[ch].setVisible(visible)
+            self._recompute_row_heights()
 
     def toggle_cursors(self, visible: Optional[bool] = None):
         """Bật / tắt hiển thị cặp thước đo A & B và HUD."""
@@ -398,8 +413,8 @@ class WaveformWidget(QtWidgets.QWidget):
         t_a = self.cursor_a.value()
         t_b = self.cursor_b.value()
         dt = abs(t_b - t_a)
-        self.cursor_a.label.setText(f"A: {format_si_time(t_a)}")
-        self.cursor_b.label.setText(f"B: {format_si_time(t_b)}")
+        self.cursor_a.label.setFormat(f"A: {format_si_time(t_a)}")
+        self.cursor_b.label.setFormat(f"B: {format_si_time(t_b)}")
         self.hud.update_values(t_a, t_b)
         self.sigCursorChanged.emit(t_a, t_b, dt)
 
@@ -432,31 +447,16 @@ class WaveformWidget(QtWidgets.QWidget):
         trig_offset = int(res["trig_offset"])
         status = res.get("status", 0)
 
-        # Thiết lập vạch trigger và giới hạn thời gian
-        if status == 0:  # STATUS_TRIGGER_OK
-            t_marker = 0.0
-            self.trigger_line.setValue(t_marker)
-            self.trigger_line.setPen(pg.mkPen(color=T.TRIGGER_MARKER, width=2, style=QtCore.Qt.SolidLine))
-            self.trigger_line.label.setText("T (0 s)")
-            self.trigger_line.show()
-            x_min = -trig_offset / sample_rate
-            x_max = (sample_count - trig_offset) / sample_rate
-        elif status == 1:  # STATUS_FREERUN_OK
-            t_marker = trig_offset / sample_rate
-            self.trigger_line.setValue(t_marker)
-            self.trigger_line.setPen(pg.mkPen(color=T.TEXT_DIM, width=1.5, style=QtCore.Qt.DotLine))
-            self.trigger_line.label.setText("FREE-RUN (20%)")
-            self.trigger_line.show()
-            x_min = 0.0
-            x_max = sample_count / sample_rate
-        else:  # STATUS_TIMEOUT
-            t_marker = trig_offset / sample_rate
-            self.trigger_line.setValue(t_marker)
-            self.trigger_line.setPen(pg.mkPen(color=T.ACCENT_WARN, width=1.8, style=QtCore.Qt.DashDotLine))
-            self.trigger_line.label.setText("TIMEOUT")
-            self.trigger_line.show()
-            x_min = 0.0
-            x_max = sample_count / sample_rate
+        # The origin is the reference index for every status, not a real edge in free-run/timeout.
+        t_marker = 0.0
+        self.trigger_line.setValue(t_marker)
+        color = T.TRIGGER_MARKER if status == 0 else T.ACCENT_WARN if status == 2 else T.TEXT_DIM
+        style = QtCore.Qt.SolidLine if status == 0 else QtCore.Qt.DotLine
+        self.trigger_line.setPen(pg.mkPen(color=color, width=1.5, style=style))
+        self.trigger_line.label.setFormat({0: 'T (0 s)', 1: '0 (free-run, reference)', 2: '0 (timeout, reference)'}[status])
+        self.trigger_line.show()
+        x_min = -trig_offset / sample_rate
+        x_max = (sample_count - trig_offset) / sample_rate
 
         self._update_curve_data()
 
@@ -480,40 +480,41 @@ class WaveformWidget(QtWidgets.QWidget):
         trig_offset = int(self.current_data["trig_offset"])
         status = self.current_data.get("status", 0)
 
-        if status == 0:
-            time_axis = (np.arange(sample_count, dtype=np.float64) - trig_offset) / sample_rate
-        else:
-            time_axis = np.arange(sample_count, dtype=np.float64) / sample_rate
+        time_axis = (np.arange(sample_count, dtype=np.float64) - trig_offset) / sample_rate
 
         y0 = 0
         for ch in range(8):
             h = self.row_heights[ch]
-            top = y0 + (h - self.row_h) if ch == 0 else y0
+            top = y0 + (h - self.row_h) if ch == self.analyzer_channel else y0
             hi = top + self.row_h * 0.22
             lo = top + self.row_h * 0.78
 
             ch_samples = channels[ch]
-            yy = np.where(ch_samples == 1, hi, lo)
-            self.curves[ch].setData(x=time_axis, y=yy, stepMode="left")
+            # Keep every edge but omit redundant flat points. This also bounds SVG size.
+            indices = np.unique(np.r_[0, np.flatnonzero(np.diff(ch_samples) != 0) + 1, sample_count - 1])
+            yy = np.where(ch_samples[indices] == 1, hi, lo)
+            self.curves[ch].setData(x=time_axis[indices], y=yy, stepMode="left")
             self.curves[ch].setVisible(self.channel_visible[ch])
             y0 += h
 
-    def render_uart_decorations(self, frames: List[Dict[str, Any]], sample_rate: float, trig_offset: int):
+    def render_uart_decorations(self, frames: List[Dict[str, Any]], sample_rate: float, trig_offset: int, channel=0, baudrate=115200):
         """
         Vẽ các ô chú thích giải mã UART và chấm tâm bit (bit center dots) trực tiếp trên sóng Kênh 0
         đáp ứng 100% mục 5 của UI_SPEC.md.
         """
+        self._decoration_args = (frames, sample_rate, trig_offset, channel, baudrate)
         self.clear_decoder_decorations()
 
-        if not frames:
+        if not frames or not self.channel_visible[channel]:
             return
 
-        h0 = self.row_heights[0]
-        bubble_top = h0 * 0.08
+        y0 = sum(self.row_heights[:channel])
+        h0 = self.row_heights[channel]
+        bubble_top = y0 + h0 * 0.08
         bubble_h = self.row_h * 0.30
         bubble_center_y = bubble_top + bubble_h * 0.5
 
-        top0 = h0 - self.row_h
+        top0 = y0 + h0 - self.row_h
         hi0 = top0 + self.row_h * 0.22
         lo0 = top0 + self.row_h * 0.78
 
@@ -542,7 +543,7 @@ class WaveformWidget(QtWidgets.QWidget):
             self.decode_items.append(rect_item)
 
             # 2. Vẽ nhãn văn bản (Hex + ASCII)
-            text_str = f"0x{val:02X}"
+            text_str = frame.get('label', f'0x{val:02X}')
             if char and 32 <= ord(char[0]) <= 126:
                 text_str += f" '{char}'"
             txt_item = pg.TextItem(text_str, color=T.DECODE_UART_FG, anchor=(0.5, 0.5))
@@ -552,10 +553,11 @@ class WaveformWidget(QtWidgets.QWidget):
             self.decode_items.append(txt_item)
 
             # 3. Tính toán chấm trắng tại tâm mỗi bit dữ liệu (Bit center dots)
-            bit_len_idx = (stop_idx - start_idx) / 10.0
+            bit_len_idx = sample_rate / baudrate if baudrate else 0
             data_bits = frame.get("bit_samples", frame.get("data_bits", []))
-            for bit_i in range(8):
-                center_idx = start_idx + (bit_i + 1.5) * bit_len_idx
+            for bit_i in range(8 if baudrate else 0):
+                centers = frame.get('bit_centers')
+                center_idx = centers[bit_i] if centers else int(start_idx + (bit_i + 1.5) * bit_len_idx)
                 t_center = (center_idx - trig_offset) / sample_rate
                 bit_val = data_bits[bit_i] if bit_i < len(data_bits) else ((val >> bit_i) & 1)
                 dot_x.append(t_center)
@@ -571,6 +573,7 @@ class WaveformWidget(QtWidgets.QWidget):
                 pen=pg.mkPen(None)
             )
             self.vb.addItem(self.bit_dots_item)
+        self._update_time_grid()
 
     def clear_decoder_decorations(self):
         """Xóa toàn bộ các bong bóng chú thích và chấm bit trên đồ thị."""
@@ -597,12 +600,8 @@ class WaveformWidget(QtWidgets.QWidget):
         trig_offset = int(self.current_data["trig_offset"])
         status = self.current_data.get("status", 0)
 
-        if status == 0:
-            x_min = -trig_offset / sample_rate
-            x_max = (sample_count - trig_offset) / sample_rate
-        else:
-            x_min = 0.0
-            x_max = sample_count / sample_rate
+        x_min = -trig_offset / sample_rate
+        x_max = (sample_count - trig_offset) / sample_rate
         self.plot_widget.setXRange(x_min, x_max, padding=0.01)
 
     def zoom_to_window(self, t_start_abs: float, t_stop_abs: float):
@@ -613,13 +612,58 @@ class WaveformWidget(QtWidgets.QWidget):
         sample_rate = float(self.current_data["sample_rate"])
         trig_offset = int(self.current_data["trig_offset"])
 
-        if status == 0:
-            offset_s = trig_offset / sample_rate
-            t1 = t_start_abs - offset_s
-            t2 = t_stop_abs - offset_s
-        else:
-            t1 = t_start_abs
-            t2 = t_stop_abs
+        offset_s = trig_offset / sample_rate
+        t1 = t_start_abs - offset_s
+        t2 = t_stop_abs - offset_s
 
         dur = max(t2 - t1, 0.00004)
         self.plot_widget.setXRange(t1 - dur * 0.4, t2 + dur * 0.4, padding=0)
+    format_time = staticmethod(format_si_time)
+
+    def set_analyzer_channel(self, channel, name):
+        self.analyzer_channel, self.analyzer_name = channel, name
+        for ch, chip in enumerate(self.channel_chips):
+            chip.setText(name if ch == channel else '')
+            chip.setVisible(ch == channel)
+        self._recompute_row_heights()
+
+    def set_channel_color(self, ch, color):
+        self.channel_colors[ch] = color
+        self.curves[ch].setPen(pg.mkPen(color, width=1))
+        self.channel_frames[ch].setStyleSheet(
+            f'QFrame {{ background-color: {T.BG_MAIN}; border-left: 4px solid {color};'
+            f'border-bottom: 1px solid {T.BORDER}; }} QLabel {{ border: none; background: transparent; }}')
+        self.set_channel_name(ch, self.channel_names[ch])
+
+    def clear_capture(self):
+        self.current_data = None
+        self._decoration_args = None
+        self.clear_decoder_decorations()
+        self.trigger_line.hide()
+        for curve in self.curves:
+            curve.clear()
+    def _update_time_grid(self, *_args):
+        import math
+        left, right = self.vb.viewRange()[0]
+        span = right - left
+        if not math.isfinite(span) or span <= 0:
+            return
+        raw = span / 8
+        base = 10 ** math.floor(math.log10(raw))
+        step = next((m * base for m in (1, 2, 5, 10) if m * base >= raw), 10 * base)
+        for line in self.grid_lines:
+            self.vb.removeItem(line)
+        self.grid_lines.clear()
+        for pos in np.arange(math.ceil(left / step) * step, right, step)[:20]:
+            line = pg.InfiniteLine(pos=float(pos), angle=90,
+                                   pen=pg.mkPen(T.BORDER, width=1, style=QtCore.Qt.DashLine))
+            line.setZValue(-10)
+            self.vb.addItem(line, ignoreBounds=True)
+            self.grid_lines.append(line)
+        for hi, lo in self.hl_text_items:
+            hi.setX(left + span * .01)
+            lo.setX(left + span * .01)
+        # Avoid overlapping packet labels at overview zoom; rectangles still show byte extents.
+        for i in range(0, len(self.decode_items) - 1, 2):
+            rect, label = self.decode_items[i:i+2]
+            label.setVisible(rect.rect().width() / span * self.plot_widget.width() >= 28)

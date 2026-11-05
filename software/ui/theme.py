@@ -50,6 +50,7 @@ LABEL_COLUMN_WIDTH = 194     # px, cột nhãn bên trái
 RIGHT_PANEL_WIDTH = 313      # px, panel Analyzers/Data
 RAIL_WIDTH = 65              # px, dải icon bên phải (nút Start ở trên cùng)
 AXIS_HEIGHT = 32             # px, thước thời gian
+HUD_HEIGHT = 32              # dedicated cursor readout row; never covers the ruler
 BOTTOM_BAR_HEIGHT = 42       # px, thanh tab Session + mức zoom
 START_BUTTON_DIAMETER = 50   # px
 FONT_FAMILY = "Segoe UI"     # có thể đổi sang Inter
